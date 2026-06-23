@@ -20,7 +20,8 @@ export default function RequestForm() {
     expectedReturn: '',
   });
 
-  const [department, setDepartment] = useState<'Civil' | 'Other'>('Civil');
+  // Updated state initialization default to 'Fabrication'
+  const [department, setDepartment] = useState<'Fabrication' | 'Other'>('Fabrication');
 
   const [items, setItems] = useState<FormItem[]>([
     { type: 'Tools', itemName: '', quantity: '' }
@@ -47,14 +48,16 @@ export default function RequestForm() {
     async function fetchDropdownData() {
       try {
         const res = await fetch('/api/dropdowns');
-        const data = await res.json();
-        if (data.success) {
-          setSupervisors(data.supervisors || []);
+        const json = await res.json();
+        
+        // FIXED DATA PAYLOAD MAPPING PATTERN: Read directly from json root, not json.data
+        if (json.success) {
+          setSupervisors(json.supervisors || []);
           
-          const formattedTools = (data.tools || []).map((t: any) => 
+          const formattedTools = (json.tools || []).map((t: any) => 
             typeof t === 'string' ? { name: t, stock: 'Live' } : { name: t.name || '', stock: t.stock ?? 'Live' }
           );
-          const formattedMachines = (data.machines || []).map((m: any) => 
+          const formattedMachines = (json.machines || []).map((m: any) => 
             typeof m === 'string' ? { name: m, stock: 'Live' } : { name: m.name || '', stock: m.stock ?? 'Live' }
           );
 
@@ -143,7 +146,6 @@ export default function RequestForm() {
       updated[index] = { ...updated[index], type: value, itemName: '' };
       setItemSearch({ ...itemSearch, [index]: '' });
     } else if (field === 'quantity') {
-      // Direct assignment ensures real-time keystroke rendering
       const cleanValue = value.replace(/[^0-9]/g, '');
       updated[index].quantity = cleanValue;
     } else {
@@ -252,19 +254,21 @@ export default function RequestForm() {
                     {filteredSupervisors.length === 0 ? (
                       <div className="p-2 text-sm text-gray-500">No supervisors found</div>
                     ) : (
-                      filteredSupervisors.map((name, i) => (
-                        <div
-                          key={i}
-                          className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
-                          onClick={() => {
-                            setFormData({ ...formData, supervisor: name });
-                            setSupSearch(name);
-                            setSupOpen(false);
-                          }}
-                        >
-                          {name}
-                        </div>
-                      ))
+                      <div className="divide-y divide-gray-100">
+                        {filteredSupervisors.map((name, i) => (
+                          <div
+                            key={i}
+                            className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
+                            onClick={() => {
+                              setFormData({ ...formData, supervisor: name });
+                              setSupSearch(name);
+                              setSupOpen(false);
+                            }}
+                          >
+                            {name}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
@@ -283,15 +287,15 @@ export default function RequestForm() {
               />
             </div>
 
-            {/* ISSUED TO FIELD */}
+            {/* ISSUED TO FIELD REMAPPED FOR FABRICATION */}
             <div className="flex flex-col col-span-1 sm:col-span-2 bg-gray-50 p-4 rounded-md border border-gray-200">
               <label className="block text-sm font-medium text-gray-700 mb-2">Issued To</label>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setDepartment('Civil')}
+                  onClick={() => setDepartment('Fabrication')}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-150 ${
-                    department === 'Civil' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                    department === 'Fabrication' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
                   }`}
                 >
                   Fabrication Dept
@@ -375,30 +379,31 @@ export default function RequestForm() {
                             {filteredItems.length === 0 ? (
                               <div className="p-2 text-sm text-gray-500">No matches found</div>
                             ) : (
-                              filteredItems.map((availItem, i) => (
-                                <div
-                                  key={i}
-                                  className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
-                                  onClick={() => {
-                                    updateItemField(index, 'itemName', availItem.name);
-                                    setItemSearch({ ...itemSearch, [index]: availItem.name });
-                                    setItemOpen({ ...itemOpen, [index]: false });
-                                  }}
-                                >
-                                  {availItem.name} <span className="text-xs opacity-80">(Stock: {availItem.stock})</span>
-                                </div>
-                              ))
+                              <div className="divide-y divide-gray-100">
+                                {filteredItems.map((availItem, i) => (
+                                  <div
+                                    key={i}
+                                    className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
+                                    onClick={() => {
+                                      updateItemField(index, 'itemName', availItem.name);
+                                      setItemSearch({ ...itemSearch, [index]: availItem.name });
+                                      setItemOpen({ ...itemOpen, [index]: false });
+                                    }}
+                                  >
+                                    {availItem.name} <span className="text-xs opacity-80">(Stock: {availItem.stock})</span>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* QUANTITY TRACKER WITH EXPLICIT CLOSURE EXEMPTION CLASS */}
+                    {/* QUANTITY TRACKER */}
                     <div className="w-full sm:w-1/4 flex flex-col space-y-1">
                       <label className="text-xs font-medium text-gray-600">Quantity</label>
                       <div className="qty-container-block flex items-center bg-white border border-gray-300 rounded-md h-[38px] overflow-hidden shadow-sm focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500">
-                        {/* Minus Button */}
                         <button
                           type="button"
                           className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold border-r border-gray-300 select-none active:bg-gray-300 touch-manipulation text-base"
@@ -406,8 +411,6 @@ export default function RequestForm() {
                         >
                           -
                         </button>
-                        
-                        {/* Native typing input box */}
                         <input
                           type="text"
                           inputMode="numeric"
@@ -417,8 +420,6 @@ export default function RequestForm() {
                           value={item.quantity}
                           onChange={(e) => updateItemField(index, 'quantity', e.target.value)}
                         />
-                        
-                        {/* Plus Button */}
                         <button
                           type="button"
                           className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold border-l border-gray-300 select-none active:bg-gray-300 touch-manipulation text-base"
