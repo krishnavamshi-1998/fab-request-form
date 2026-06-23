@@ -1,64 +1,63 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
-export async function GET() {
+export async function POST(request: Request) {
   try {
-    // 1. Authenticate with your existing Google Cloud Identity Card
+    const body = await request.json();
+    const { supervisor, location, expectedReturn, department, items } = body;
+
+    // 1. Quick payload verification guard
+    if (!supervisor || !items || items.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required request form elements' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Initialize Google Auth with Read/Write access scope
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        // Replace literal \n markers back into standard formatting blocks
         private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-    // 2. Parallel execution to fetch the 3 custom data locations cleanly
-    const [toolsRes, machinesRes, stockRes] = await Promise.all([
-      sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Tools!B3:B', // Your Tool column
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Machines!J3:J', // Your Machine column
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Master Stock!R3:R', // Your Supervisor column location
-      }),
+    // 3. Format the data grid arrays to push down into rows
+    // Change 'Fabrication Logs' to match the exact name of your main logging sheet tab
+    const targetSheetTab = 'Fabrication Logs'; 
+    const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+    const rowsToAppend = items.map((item: any) => [
+      timestamp,          // Column A: Date & Time
+      supervisor,         // Column B: Supervisor Name
+      location,           // Column C: Location / Site
+      department,         // Column D: Department Allocation
+      expectedReturn,     // Column E: Expected Return Date
+      item.type,          // Column F: Category (Tools or Machine)
+      item.itemName,      // Column G: Item Model Name
+      item.quantity       // Column H: Dispatched Quantity
     ]);
 
-    // 3. Extract strings & clean up any blank/empty rows in between data
-    const tools = toolsRes.data.values
-      ? toolsRes.data.values.flat().filter((item) => item && item.trim() !== '')
-      : [];
-
-    const machines = machinesRes.data.values
-      ? machinesRes.data.values.flat().filter((item) => item && item.trim() !== '')
-      : [];
-
-    const supervisors = stockRes.data.values
-      ? stockRes.data.values.flat().filter((item) => item && item.trim() !== '')
-      : [];
-
-    // 4. Send the cleaned arrays directly to your UI dropdown components
-    return NextResponse.json({
-      success: true,
-      data: {
-        tools,
-        machines,
-        supervisors,
+    // 4. Append rows seamlessly to the bottom of the log file
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${targetSheetTab}!A:H`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: rowsToAppend,
       },
     });
 
+    return NextResponse.json({ success: true, message: 'Data logged successfully!' });
+
   } catch (error: any) {
-    console.error('Google Sheets Data Extraction Error:', error);
+    console.error('Google Sheets Submission Failure:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to fetch dropdown data' },
+      { success: false, error: error.message || 'Internal transmission failure' },
       { status: 500 }
     );
   }
