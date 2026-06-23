@@ -224,7 +224,7 @@ export default function RequestForm() {
     <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8">
         <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4">
-          Civil Tracker Request Form
+          Fabrication Tracker Request Form
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -294,7 +294,7 @@ export default function RequestForm() {
                     department === 'Civil' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
                   }`}
                 >
-                  Civil Dept
+                  Fabrication Dept
                 </button>
                 <button
                   type="button"
