@@ -26,33 +26,60 @@ export async function POST(request: Request) {
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-    // 3. Format the data grid arrays to push down into rows
-    // Change 'Fabrication Logs' to match the exact name of your main logging sheet tab
-    const targetSheetTab = 'Fabrication Logs'; 
     const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
-    const rowsToAppend = items.map((item: any) => [
-      timestamp,          // Column A: Date & Time
-      supervisor,         // Column B: Supervisor Name
-      location,           // Column C: Location / Site
-      department,         // Column D: Department Allocation
-      expectedReturn,     // Column E: Expected Return Date
-      item.type,          // Column F: Category (Tools or Machine)
-      item.itemName,      // Column G: Item Model Name
-      item.quantity       // Column H: Dispatched Quantity
-    ]);
+    // 3. Separate items into Tools and Machines buckets with S. No in Column A
+    const toolRows: any[][] = [];
+    const machineRows: any[][] = [];
 
-    // 4. Append rows seamlessly to the bottom of the log file
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `${targetSheetTab}!A:H`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: rowsToAppend,
-      },
+    items.forEach((item: any) => {
+      const rowData = [
+        '=ROW()-1',         // Column A: Dynamic Serial Number (Auto-counts rows)
+        timestamp,          // Column B: Date & Time
+        supervisor,         // Column C: Supervisor Name
+        location,           // Column D: Location / Site
+        department,         // Column E: Department Allocation
+        expectedReturn,     // Column F: Expected Return Date
+        item.type,          // Column G: Category (Tools or Machine)
+        item.itemName,      // Column H: Item Model Name
+        item.quantity       // Column I: Dispatched Quantity
+      ];
+
+      if (item.type === 'Tools') {
+        toolRows.push(rowData);
+      } else if (item.type === 'Machine') {
+        machineRows.push(rowData);
+      }
     });
 
-    return NextResponse.json({ success: true, message: 'Data logged successfully!' });
+    // 4. Send parallel append requests to Google Sheets (Targeting A:I columns now)
+    const appendPromises = [];
+
+    if (toolRows.length > 0) {
+      appendPromises.push(
+        sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: 'Tools!A:I', 
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: toolRows },
+        })
+      );
+    }
+
+    if (machineRows.length > 0) {
+      appendPromises.push(
+        sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: 'Machines!A:I', 
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: machineRows },
+        })
+      );
+    }
+
+    await Promise.all(appendPromises);
+
+    return NextResponse.json({ success: true, message: 'Data successfully split and logged with S.No!' });
 
   } catch (error: any) {
     console.error('Google Sheets Submission Failure:', error);
