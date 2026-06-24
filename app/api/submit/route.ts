@@ -71,19 +71,23 @@ export async function POST(request: Request) {
     const machineRows: any[][] = [];
 
     items.forEach((item: any) => {
-      // EXACT SWAPPED ARRAY COLUMN DESIGN
+      // Fail-safe property extraction to prevent frontend property mixups
+      const actualItemName = item.itemName || item.name || item.toolName || item.machineName || 'Unknown Item';
+      const actualReturnDate = expectedReturn || item.expectedReturn || 'N/A';
+
+      // STRICT COLUMN ORDER MAPPING MATRIX (A to H)
       const rowData = [
-        '=ROW()-1',         // Column A: S. No
-        timestamp,          // Column B: Timestamp
-        supervisor,         // Column C: Supervisor Name
-        location,           // Column D: Location
-        issuedTo,           // Column E: Issued To
-        item.itemName,      // Column F: Tool/Machine Name  <-- SWAPPED HERE
-        item.quantity,      // Column G: Quantity
-        expectedReturn      // Column H: Expected Return Date <-- SWAPPED HERE
+        '=ROW()-1',           // Column A: S. No
+        timestamp,            // Column B: Timestamp
+        supervisor || 'N/A',  // Column C: Supervisor Name
+        location || 'N/A',    // Column D: Location
+        issuedTo || 'N/A',    // Column E: Issued To
+        String(actualItemName).trim(),   // Column F: Tool/Machine Name (GUARANTEED)
+        Number(item.quantity) || 1,      // Column G: Quantity
+        String(actualReturnDate).trim()  // Column H: Expected Return Date (GUARANTEED)
       ];
 
-      // Routing logic based on type, but category itself is excluded from row data
+      // Route the cleanly constructed row arrays to the proper sheet targets
       if (item.type === 'Tools') {
         toolRows.push(rowData);
       } else if (item.type === 'Machine') {
