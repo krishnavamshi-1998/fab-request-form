@@ -4,7 +4,6 @@ import { google } from 'googleapis';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    // Destructuring fields to match the updated form payload
     const { supervisor, location, expectedReturn, issuedTo, items } = body;
 
     // 1. Guard rails for validation
@@ -40,61 +39,62 @@ export async function POST(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // 1. Get the current time in India timezone
-// 1. Get the current time in India timezone with short month letters
-const now = new Date();
-const formattedParts = new Intl.DateTimeFormat('en-IN', {
-  timeZone: 'Asia/Kolkata',
-  day: '2-digit',
-  month: 'short',   // Forces 3-letter month formatting (e.g., Jan, Feb, Jun)
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false     // Enforces strict 24-hour clock layout
-}).formatToParts(now);
+    // 4. Precise Timestamp Generation (DD/MMM/YYYY HH:mm:ss, No Comma)
+    const now = new Date();
+    const formattedParts = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(now);
 
-// 2. Extract parts to precisely reconstruct the layout
-const day = formattedParts.find(p => p.type === 'day')?.value;
-const month = formattedParts.find(p => p.type === 'month')?.value;
-const year = formattedParts.find(p => p.type === 'year')?.value;
-let hour = formattedParts.find(p => p.type === 'hour')?.value;
-const minute = formattedParts.find(p => p.type === 'minute')?.value;
-const second = formattedParts.find(p => p.type === 'second')?.value;
+    const day = formattedParts.find(p => p.type === 'day')?.value;
+    const month = formattedParts.find(p => p.type === 'month')?.value;
+    const year = formattedParts.find(p => p.type === 'year')?.value;
+    let hour = formattedParts.find(p => p.type === 'hour')?.value;
+    const minute = formattedParts.find(p => p.type === 'minute')?.value;
+    const second = formattedParts.find(p => p.type === 'second')?.value;
 
-// 3. Fix a known midnight quirk in some runtime engines where hour12: false outputs "24" instead of "00"
-if (hour === '24') {
-  hour = '00';
-}
+    if (hour === '24') {
+      hour = '00';
+    }
 
-// 4. Assemble the final string with a clean single space and NO comma
-const timestamp = `${day}/${month}/${year} ${hour}:${minute}:${second}`;
+    const timestamp = `${day}/${month}/${year} ${hour}:${minute}:${second}`;
 
-    // 4. Separate items into Tools and Machines buckets matching the exact column blueprint
     const toolRows: any[][] = [];
     const machineRows: any[][] = [];
 
+    // 5. STRICT 8-COLUMN DATA ROUTING MATRIX
     items.forEach((item: any) => {
+      const actualItemName = item.itemName || item.name || 'Unknown Item';
+      
+      // Force construct exactly 8 array items. 
+      // There is NO "item.type" or "Category" inside this array.
       const rowData = [
-        '=ROW()-1',         // Column A: S. No (Dynamic Row Auto-Counter)
-        timestamp,          // Column B: Timestamp
-        supervisor,         // Column C: Supervisor Name
-        location,           // Column D: Location
-        issuedTo,           // Column E: Issued To
-        item.itemName,      // Column F: Tool/Machine Name (Category dropped!)
-        item.quantity,      // Column G: Quantity
-        expectedReturn      // Column H: Expected Return Date
+        '=ROW()-1',                       // Col A: S. No
+        timestamp,                        // Col B: Timestamp
+        String(supervisor).trim(),        // Col C: Supervisor Name
+        String(location).trim(),          // Col D: Location
+        String(issuedTo).trim(),          // Col E: Issued To
+        String(actualItemName).trim(),    // Col F: Tool/Machine Name
+        Number(item.quantity) || 1,       // Col G: Quantity
+        String(expectedReturn).trim()     // Col H: Expected Return Date
       ];
 
-      // Routing logic based on type, but category itself is excluded from row data
-      if (item.type === 'Tools') {
-        toolRows.push(rowData);
-      } else if (item.type === 'Machine') {
+      // Use the item type strictly to choose the target sheet, NOT to write to a column
+      if (String(item.type).toLowerCase().includes('machine')) {
         machineRows.push(rowData);
+      } else {
+        // Defaults to Tools sheet if it's not a machine
+        toolRows.push(rowData);
       }
     });
 
-    // 5. Fire parallel appends targeting the strict A:H limits
+    // 6. Fire parallel appends targeting the strict A:H range limits
     const appendPromises = [];
 
     if (toolRows.length > 0) {
@@ -120,8 +120,7 @@ const timestamp = `${day}/${month}/${year} ${hour}:${minute}:${second}`;
     }
 
     await Promise.all(appendPromises);
-
-    return NextResponse.json({ success: true, message: 'Data successfully logged with new layout alignment!' });
+    return NextResponse.json({ success: true, message: 'Data logged successfully!' });
 
   } catch (error: any) {
     console.error('Google Sheets Submission Failure:', error);
