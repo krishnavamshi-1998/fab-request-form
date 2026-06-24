@@ -4,9 +4,10 @@ import { google } from 'googleapis';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { supervisor, location, expectedReturn, department, items } = body;
+    // Destructuring fields to match the updated form payload
+    const { supervisor, location, expectedReturn, issuedTo, items } = body;
 
-    // 1. Quick payload verification guard
+    // 1. Guard rails for validation
     if (!supervisor || !items || items.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Missing required request form elements' },
@@ -14,37 +15,75 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Initialize Google Auth with Read/Write access scope
+    // 2. Extract and Sanitize Credentials
+    const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+    if (!privateKey || !email || !spreadsheetId) {
+      throw new Error('CRITICAL: Missing environment configuration keys in submission handler.');
+    }
+
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      privateKey = privateKey.slice(1, -1);
+    }
+    privateKey = privateKey.replace(/\\n/g, '\n');
+
+    // 3. Initialize Google Auth with Read/Write access scope
     const auth = new google.auth.GoogleAuth({
       credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        client_email: email,
+        private_key: privateKey,
       },
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-    const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    // 4. Precise Timestamp Generation (DD/MMM/YYYY HH:mm:ss, No Comma)
+    const now = new Date();
+    const formattedParts = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',   // Forces 3-letter month formatting (e.g., Jan, Feb, Jun)
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false     // Enforces strict 24-hour clock layout
+    }).formatToParts(now);
 
-    // 3. Separate items into Tools and Machines buckets with S. No in Column A
+    const day = formattedParts.find(p => p.type === 'day')?.value;
+    const month = formattedParts.find(p => p.type === 'month')?.value;
+    const year = formattedParts.find(p => p.type === 'year')?.value;
+    let hour = formattedParts.find(p => p.type === 'hour')?.value;
+    const minute = formattedParts.find(p => p.type === 'minute')?.value;
+    const second = formattedParts.find(p => p.type === 'second')?.value;
+
+    if (hour === '24') {
+      hour = '00';
+    }
+
+    const timestamp = `${day}/${month}/${year} ${hour}:${minute}:${second}`;
+
+    // 5. Separate items into Tools and Machines buckets matching your strict column order
     const toolRows: any[][] = [];
     const machineRows: any[][] = [];
 
     items.forEach((item: any) => {
+      // EXACT SWAPPED ARRAY COLUMN DESIGN
       const rowData = [
-        '=ROW()-1',         // Column A: Dynamic Serial Number (Auto-counts rows)
-        timestamp,          // Column B: Date & Time
+        '=ROW()-1',         // Column A: S. No
+        timestamp,          // Column B: Timestamp
         supervisor,         // Column C: Supervisor Name
-        location,           // Column D: Location / Site
-        department,         // Column E: Department Allocation
-        expectedReturn,     // Column F: Expected Return Date
-        item.type,          // Column G: Category (Tools or Machine)
-        item.itemName,      // Column H: Item Model Name
-        item.quantity       // Column I: Dispatched Quantity
+        location,           // Column D: Location
+        issuedTo,           // Column E: Issued To
+        item.itemName,      // Column F: Tool/Machine Name  <-- SWAPPED HERE
+        item.quantity,      // Column G: Quantity
+        expectedReturn      // Column H: Expected Return Date <-- SWAPPED HERE
       ];
 
+      // Routing logic based on type, but category itself is excluded from row data
       if (item.type === 'Tools') {
         toolRows.push(rowData);
       } else if (item.type === 'Machine') {
@@ -52,14 +91,14 @@ export async function POST(request: Request) {
       }
     });
 
-    // 4. Send parallel append requests to Google Sheets (Targeting A:I columns now)
+    // 6. Fire parallel appends targeting the strict A:H limits
     const appendPromises = [];
 
     if (toolRows.length > 0) {
       appendPromises.push(
         sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: 'Tools!A:I', 
+          range: 'Tools!A:H', 
           valueInputOption: 'USER_ENTERED',
           requestBody: { values: toolRows },
         })
@@ -70,7 +109,7 @@ export async function POST(request: Request) {
       appendPromises.push(
         sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: 'Machines!A:I', 
+          range: 'Machines!A:H', 
           valueInputOption: 'USER_ENTERED',
           requestBody: { values: machineRows },
         })
@@ -79,7 +118,7 @@ export async function POST(request: Request) {
 
     await Promise.all(appendPromises);
 
-    return NextResponse.json({ success: true, message: 'Data successfully split and logged with S.No!' });
+    return NextResponse.json({ success: true, message: 'Data successfully logged with corrected column swaps!' });
 
   } catch (error: any) {
     console.error('Google Sheets Submission Failure:', error);
