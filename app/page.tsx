@@ -19,7 +19,7 @@ export default function RequestForm() {
     supervisorMobile: '',
     location: '',
     expectedReturn: '',
-    issuedTo: 'Fabrication Dept', // Defaulting to Fabrication
+    issuedTo: 'Fabrication Dept', // Default setting
   });
 
   const [department, setDepartment] = useState<'Fabrication' | 'Other'>('Fabrication');
@@ -44,11 +44,11 @@ export default function RequestForm() {
   const supervisorRef = useRef<HTMLDivElement>(null);
   const itemsRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
-  // Sync Department toggle selections straight into the issuedTo form data value string
+  // Sync Department toggle selections straight into the issuedTo data string without any text box popups
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      issuedTo: department === 'Fabrication' ? 'Fabrication Dept' : ''
+      issuedTo: department === 'Fabrication' ? 'Fabrication Dept' : 'Other Depts'
     }));
   }, [department]);
 
@@ -270,7 +270,7 @@ export default function RequestForm() {
             {/* ISSUED TO DEPARTMENT TOGGLE ROW */}
             <div className="flex flex-col col-span-1 sm:col-span-2 bg-gray-50 p-4 rounded-md border border-gray-200">
               <label className="block text-sm font-medium text-gray-700 mb-2">Issued To</label>
-              <div className="flex gap-2 mb-3">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setDepartment('Fabrication')}
@@ -290,17 +290,6 @@ export default function RequestForm() {
                   Other Depts
                 </button>
               </div>
-
-              {department === 'Other' && (
-                <input
-                  type="text"
-                  required
-                  placeholder="Specify custom department or recipient name..."
-                  className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                  value={formData.issuedTo}
-                  onChange={(e) => setFormData({ ...formData, issuedTo: e.target.value })}
-                />
-              )}
             </div>
 
             {/* LOCATION SITE */}
