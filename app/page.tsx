@@ -256,11 +256,11 @@ export default function RequestForm() {
 
             {/* SUPERVISOR MOBILE NUMBER FIELD */}
             <div className="flex flex-col space-y-1">
-              <label className="text-sm font-medium text-gray-700">Supervisor Mobile Number</label>
+              <label className="text-sm font-medium text-gray-700">Supervisor Mobile Number (Whatsapp Number Only)</label>
               <input
                 type="tel"
                 required
-                placeholder="Enter mobile number"
+                placeholder="Enter Whatsapp mobile number"
                 className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
                 value={formData.supervisorMobile}
                 onChange={(e) => setFormData({ ...formData, supervisorMobile: e.target.value.replace(/[^0-9+ ]/g, '') })}
