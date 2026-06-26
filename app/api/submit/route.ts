@@ -76,27 +76,19 @@ export async function POST(request: Request) {
 
       const headers = headerResponse.data.values?.[0] || [];
       
-      // Clean up headers to match accurately by stripping extra spaces
-      const cleanHeaders = headers.map(h => String(h).trim().toLowerCase().replace(/\s+/g, ' '));
+      // Clean up headers to match accurately
+      const cleanHeaders = headers.map(h => String(h).trim().toLowerCase());
 
-      // Map key locations dynamically using resilient variation matching
-      const idxSNo = cleanHeaders.findIndex(h => h.includes('s. no') || h.includes('s.no') || h === 'sl');
+      // Map key locations dynamically based on your text headers
+      const idxSNo = cleanHeaders.indexOf('s. no');
       const idxTimestamp = cleanHeaders.indexOf('timestamp');
-      const idxSupervisor = cleanHeaders.findIndex(h => h.includes('supervisor name') || h === 'supervisor');
-      
-      // 💡 TOUGH FLEXIBLE LOOKUP PATTERN: Catches "supervisor mail id", "supervisor email", "mail id", etc.
-      const idxMail = cleanHeaders.findIndex(h => 
-        h.includes('mail id') || h.includes('email') || h.includes('mailid')
-      );
-      
+      const idxSupervisor = cleanHeaders.indexOf('supervisor name');
+      const idxMail = cleanHeaders.indexOf('supervisor mail id');
       const idxLocation = cleanHeaders.indexOf('location');
-      const idxIssuedTo = cleanHeaders.findIndex(h => h.includes('issued to'));
-      const idxItemName = cleanHeaders.findIndex(h => h.includes('name') && (h.includes('tool') || h.includes('machine')));
+      const idxIssuedTo = cleanHeaders.indexOf('issued to');
+      const idxItemName = cleanHeaders.indexOf('tool/machine name');
       const idxQuantity = cleanHeaders.indexOf('quantity');
-      const idxReturn = cleanHeaders.findIndex(h => h.includes('return'));
-
-      // Log indices to server for debugging if the email column target keeps breaking
-      console.log(`[${sheetName}] Mapping Indices -> Supervisor: ${idxSupervisor}, Mail: ${idxMail}`);
+      const idxReturn = cleanHeaders.indexOf('expected return date');
 
       const rowsToAppend = targetItems.map((item: any) => {
         // Find the maximum length needed to accommodate all present headers

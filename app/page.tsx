@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useSession, signIn, signOut } from 'next-auth/react';
 
 interface DropdownItem {
   name: string;
@@ -15,22 +14,19 @@ interface FormItem {
 }
 
 export default function RequestForm() {
-  const { data: session, status } = useSession();
-
-  // Form states matching dynamic backend requirements
   const [formData, setFormData] = useState({
     supervisor: '',
-    supervisorEmail: '',
     location: '',
-    issuedTo: '',
     expectedReturn: '',
   });
 
-  const [department, setDepartment] = useState<'Fabrication' | 'Other'>('Fabrication');
+  const [department, setDepartment] = useState<'Civil' | 'Other'>('Civil');
+
   const [items, setItems] = useState<FormItem[]>([
     { type: 'Tools', itemName: '', quantity: '' }
   ]);
 
+  const [supervisors, setSupervisors] = useState<string[]>([]);
   const [tools, setTools] = useState<DropdownItem[]>([]);
   const [machines, setMachines] = useState<DropdownItem[]>([]);
   
@@ -38,41 +34,27 @@ export default function RequestForm() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: '', isError: false });
 
+  const [supOpen, setSupOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState<{ [key: number]: boolean }>({});
+
+  const [supSearch, setSupSearch] = useState('');
   const [itemSearch, setItemSearch] = useState<{ [key: number]: string }>({});
+
+  const supervisorRef = useRef<HTMLDivElement>(null);
   const itemsRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
-  // 1. Automatically sync session details into hidden tracker state values
-  useEffect(() => {
-    if (session?.user) {
-      setFormData(prev => ({
-        ...prev,
-        supervisorEmail: session.user.email || '',
-        supervisor: session.user.name || 'Authenticated Supervisor'
-      }));
-    }
-  }, [session]);
-
-  // Sync Department selections straight into the unified issuedTo field string
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      issuedTo: department === 'Fabrication' ? 'Fabrication Dept' : ''
-    }));
-  }, [department]);
-
-  // 2. Fetch Dropdowns & Listen for Outside Click Closures
   useEffect(() => {
     async function fetchDropdownData() {
       try {
         const res = await fetch('/api/dropdowns');
-        const json = await res.json();
-        
-        if (json.success) {
-          const formattedTools = (json.tools || []).map((t: any) => 
+        const data = await res.json();
+        if (data.success) {
+          setSupervisors(data.supervisors || []);
+          
+          const formattedTools = (data.tools || []).map((t: any) => 
             typeof t === 'string' ? { name: t, stock: 'Live' } : { name: t.name || '', stock: t.stock ?? 'Live' }
           );
-          const formattedMachines = (json.machines || []).map((m: any) => 
+          const formattedMachines = (data.machines || []).map((m: any) => 
             typeof m === 'string' ? { name: m, stock: 'Live' } : { name: m.name || '', stock: m.stock ?? 'Live' }
           );
 
@@ -85,14 +67,19 @@ export default function RequestForm() {
         setLoading(false);
       }
     }
-    
     fetchDropdownData();
 
+    // FIXED GLOBAL CLICK HANDLER WITH OVERLAP PASS-THROUGH
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
 
+      // Ignore closing actions if you are clicking inside ANY quantity input element
       if (target.closest('.qty-container-block')) {
         return;
+      }
+
+      if (supervisorRef.current && !supervisorRef.current.contains(target)) {
+        setSupOpen(false);
       }
 
       setItemOpen(prev => {
@@ -115,6 +102,7 @@ export default function RequestForm() {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        setSupOpen(false);
         setItemOpen({});
       }
     };
@@ -128,7 +116,10 @@ export default function RequestForm() {
     };
   }, []);
 
-  // 3. Dynamic row manipulation functions
+  const filteredSupervisors = supervisors.filter(name => 
+    name.toLowerCase().includes(supSearch.toLowerCase())
+  );
+
   const handleAddItemRow = () => {
     setItems([...items, { type: 'Tools', itemName: '', quantity: '' }]);
   };
@@ -152,6 +143,7 @@ export default function RequestForm() {
       updated[index] = { ...updated[index], type: value, itemName: '' };
       setItemSearch({ ...itemSearch, [index]: '' });
     } else if (field === 'quantity') {
+      // Direct assignment ensures real-time keystroke rendering
       const cleanValue = value.replace(/[^0-9]/g, '');
       updated[index].quantity = cleanValue;
     } else {
@@ -169,14 +161,13 @@ export default function RequestForm() {
     }
   };
 
-  // 4. API Transmission Handle Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const hasInvalidQuantity = items.some(i => !i.quantity || parseInt(String(i.quantity), 10) <= 0);
+    const hasInvalidQuantity = items.some(i => !i.quantity || parseInt(i.quantity, 10) <= 0);
 
     if (!formData.supervisor || items.some(i => !i.itemName)) {
-      setMessage({ text: 'Session validation error. Please check your login details and fill out item rows.', isError: true });
+      setMessage({ text: 'Please select a Supervisor and item names for all lines.', isError: true });
       return;
     }
 
@@ -190,123 +181,120 @@ export default function RequestForm() {
 
     const formattedItems = items.map(item => ({
       ...item,
-      quantity: parseInt(String(item.quantity), 10)
+      quantity: parseInt(item.quantity, 10)
     }));
 
     try {
-      const payload = {
-        supervisor: formData.supervisor,
-        supervisorEmail: formData.supervisorEmail,
-        location: formData.location,
-        expectedReturn: formData.expectedReturn,
-        issuedTo: formData.issuedTo,
-        items: formattedItems
-      };
-
-      const response = await fetch('/api/submit', {
+      const res = await fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...formData, department, items: formattedItems, issuedTo: department }),
       });
+      const data = await res.json();
 
-      const result = await response.json();
-
-      if (result.success) {
-        setMessage({ text: 'Request logged into Spreadsheet successfully!', isError: false });
-        setItems([{ type: 'Tools', itemName: '', quantity: '' }]);
+      if (data.success) {
+        setMessage({ text: 'Form logs saved successfully to Google Sheets!', isError: false });
+        setFormData({ supervisor: '', location: '', expectedReturn: '' });
+        setSupSearch('');
         setItemSearch({});
-        setFormData(prev => ({ ...prev, location: '', expectedReturn: '' }));
+        setItems([{ type: 'Tools', itemName: '', quantity: '' }]);
+        itemsRefs.current = {};
       } else {
-        setMessage({ text: `Submission Failed: ${result.error}`, isError: true });
+        throw new Error(data.error || 'Unknown submission error.');
       }
     } catch (err: any) {
-      console.error("Form Submission Network Error:", err);
-      setMessage({ text: 'Internal transmission failure. Please try again.', isError: true });
+      setMessage({ text: `Submission Failed: ${err.message}`, isError: true });
     } finally {
       setSubmitting(false);
     }
   };
 
-  // 5. Auth Processing Loader Gate
-  if (status === 'loading') {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center p-10 font-medium text-gray-600">Verifying login credentials...</div>
-      </div>
-    );
-  }
-
-  // 6. Security Authentication Gate (Forces users to log in before viewing form content)
-  if (!session) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center border border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Fabrication Tracker Portal</h2>
-          <p className="text-sm text-gray-600 mb-6">Please authenticate using your account email to request tool and machine allocations.</p>
-          <button
-            type="button"
-            onClick={() => signIn('google')}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-semibold hover:bg-blue-700 transition duration-150 shadow-sm"
-          >
-            Sign In with Google
-          </button>
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-semibold text-lg">Syncing Live Master Inventory...</p>
         </div>
       </div>
     );
   }
 
-  // 7. Full Main Render Tree (Only accessible when signed in)
   return (
     <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8">
-        
-        {/* Active Session Account Topbar */}
-        <div className="flex justify-between items-center mb-6 bg-blue-50 p-3.5 rounded border border-blue-100 shadow-sm">
-          <div>
-            <p className="text-xs text-blue-600 uppercase tracking-wider font-bold">Active Supervisor</p>
-            <p className="text-sm text-gray-700"><strong>{session.user?.name}</strong> ({session.user?.email})</p>
-          </div>
-          <button 
-            type="button" 
-            onClick={() => signOut()} 
-            className="text-xs font-semibold bg-white text-red-500 hover:text-red-700 px-3 py-1.5 border border-red-200 rounded shadow-sm transition"
-          >
-            Sign Out
-          </button>
-        </div>
-
         <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4">
-          Fabrication Tracker Request Form
+          Civil Tracker Request Form
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             
+            {/* SEARCHABLE SUPERVISOR DROPDOWN */}
+            <div className="flex flex-col space-y-1 relative" ref={supervisorRef}>
+              <label className="text-sm font-medium text-gray-700">Supervisor</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  placeholder="🔍 Type to search & select supervisor..."
+                  className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer"
+                  value={supSearch}
+                  onFocus={() => setSupOpen(true)}
+                  onChange={(e) => {
+                    setSupSearch(e.target.value);
+                    setSupOpen(true);
+                    if (formData.supervisor) setFormData({ ...formData, supervisor: '' });
+                  }}
+                />
+                {supOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md max-h-60 overflow-y-auto shadow-lg">
+                    {filteredSupervisors.length === 0 ? (
+                      <div className="p-2 text-sm text-gray-500">No supervisors found</div>
+                    ) : (
+                      filteredSupervisors.map((name, i) => (
+                        <div
+                          key={i}
+                          className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
+                          onClick={() => {
+                            setFormData({ ...formData, supervisor: name });
+                            setSupSearch(name);
+                            setSupOpen(false);
+                          }}
+                        >
+                          {name}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* LOCATION / SITE FIELD */}
-            <div className="flex flex-col space-y-1 col-span-1 sm:col-span-2">
+            <div className="flex flex-col space-y-1">
               <label className="text-sm font-medium text-gray-700">Location / Site</label>
               <input
                 type="text"
                 required
-                placeholder="Enter deployment site location"
                 className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               />
             </div>
 
-            {/* ISSUED TO FIELD DEPARTMENT TOGGLE SWITCH */}
+            {/* ISSUED TO FIELD */}
             <div className="flex flex-col col-span-1 sm:col-span-2 bg-gray-50 p-4 rounded-md border border-gray-200">
               <label className="block text-sm font-medium text-gray-700 mb-2">Issued To</label>
-              <div className="flex gap-2 mb-3">
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setDepartment('Fabrication')}
+                  onClick={() => setDepartment('Civil')}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-150 ${
-                    department === 'Fabrication' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                    department === 'Civil' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
                   }`}
                 >
-                  Fabrication Dept
+                  Civil Dept
                 </button>
                 <button
                   type="button"
@@ -318,18 +306,6 @@ export default function RequestForm() {
                   Other Depts
                 </button>
               </div>
-
-              {/* Conditional custom department input string */}
-              {department === 'Other' && (
-                <input
-                  type="text"
-                  required
-                  placeholder="Type target department or employee name..."
-                  className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                  value={formData.issuedTo}
-                  onChange={(e) => setFormData({ ...formData, issuedTo: e.target.value })}
-                />
-              )}
             </div>
 
             {/* EXPECTED RETURN DATE */}
@@ -347,130 +323,125 @@ export default function RequestForm() {
 
           <hr className="border-gray-200" />
 
-          {/* Section: Dynamic Item Allocator Row Loop */}
+          {/* Section: Multi-item Row Allocator */}
           <div>
             <h2 className="text-lg font-semibold text-gray-700 mb-3">Requested Items Checklist</h2>
-            
-            {loading ? (
-              <div className="text-center text-sm text-gray-500 p-4">Loading active equipment inventory dropdown lists...</div>
-            ) : (
-              <div className="space-y-4">
-                {items.map((item, index) => {
-                  const masterList = item.type === 'Tools' ? tools : machines;
-                  const currentSearch = itemSearch[index] || '';
-                  const isOpen = itemOpen[index] || false;
-                  
-                  const filteredItems = masterList.filter(availItem =>
-                    availItem.name.toLowerCase().includes(currentSearch.toLowerCase())
-                  );
-                  
-                  return (
-                    <div key={index} className="flex flex-col sm:flex-row gap-4 items-end bg-gray-50 p-4 rounded-md border border-gray-200 relative">
-                      
-                      {/* Dropdown Category Selector */}
-                      <div className="w-full sm:w-1/4 flex flex-col space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Category</label>
-                        <select
-                          className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                          value={item.type}
-                          onChange={(e) => updateItemField(index, 'type', e.target.value as any)}
-                        >
-                          <option value="Tools">Tools</option>
-                          <option value="Machine">Machine</option>
-                        </select>
-                      </div>
-
-                      {/* Searchable Input Dropdown Container */}
-                      <div 
-                        className="w-full sm:w-2/4 flex flex-col space-y-1 relative"
-                        ref={(el) => { itemsRefs.current[index] = el; }}
+            <div className="space-y-4">
+              {items.map((item, index) => {
+                const masterList = item.type === 'Tools' ? tools : machines;
+                const currentSearch = itemSearch[index] || '';
+                const isOpen = itemOpen[index] || false;
+                
+                const filteredItems = masterList.filter(availItem =>
+                  availItem.name.toLowerCase().includes(currentSearch.toLowerCase())
+                );
+                
+                return (
+                  <div key={index} className="flex flex-col sm:flex-row gap-4 items-end bg-gray-50 p-4 rounded-md border border-gray-200 relative">
+                    <div className="w-full sm:w-1/4 flex flex-col space-y-1">
+                      <label className="text-xs font-medium text-gray-600">Category</label>
+                      <select
+                        className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        value={item.type}
+                        onChange={(e) => updateItemField(index, 'type', e.target.value as any)}
                       >
-                        <label className="text-xs font-medium text-gray-600">Item Selection</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            required
-                            placeholder={`🔍 Search standard ${item.type.toLowerCase()}...`}
-                            className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
-                            value={currentSearch}
-                            onFocus={() => setItemOpen({ ...itemOpen, [index]: true })}
-                            onChange={(e) => {
-                              setItemSearch({ ...itemSearch, [index]: e.target.value });
-                              setItemOpen({ ...itemOpen, [index]: true });
-                              if (item.itemName) updateItemField(index, 'itemName', '');
-                            }}
-                          />
-                          {isOpen && (
-                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md max-h-60 overflow-y-auto shadow-lg">
-                              {filteredItems.length === 0 ? (
-                                <div className="p-2 text-sm text-gray-500">No matching items inventory found</div>
-                              ) : (
-                                <div className="divide-y divide-gray-100">
-                                  {filteredItems.map((availItem, i) => (
-                                    <div
-                                      key={i}
-                                      className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
-                                      onClick={() => {
-                                        updateItemField(index, 'itemName', availItem.name);
-                                        setItemSearch({ ...itemSearch, [index]: availItem.name });
-                                        setItemOpen({ ...itemOpen, [index]: false });
-                                      }}
-                                    >
-                                      {availItem.name} <span className="text-xs opacity-75">(Stock: {availItem.stock})</span>
-                                    </div>
-                                  ))}
+                        <option value="Tools">Tools</option>
+                        <option value="Machine">Machine</option>
+                      </select>
+                    </div>
+
+                    {/* SEARCHABLE ITEM SELECTION DROPDOWN */}
+                    <div 
+                      className="w-full sm:w-2/4 flex flex-col space-y-1 relative"
+                      ref={(el) => { itemsRefs.current[index] = el; }}
+                    >
+                      <label className="text-xs font-medium text-gray-600">Item Selection</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          placeholder={`🔍 Type to search standard ${item.type.toLowerCase()}...`}
+                          className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
+                          value={currentSearch}
+                          onFocus={() => setItemOpen({ ...itemOpen, [index]: true })}
+                          onChange={(e) => {
+                            setItemSearch({ ...itemSearch, [index]: e.target.value });
+                            setItemOpen({ ...itemOpen, [index]: true });
+                            if (item.itemName) updateItemField(index, 'itemName', '');
+                          }}
+                        />
+                        {isOpen && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md max-h-60 overflow-y-auto shadow-lg">
+                            {filteredItems.length === 0 ? (
+                              <div className="p-2 text-sm text-gray-500">No matches found</div>
+                            ) : (
+                              filteredItems.map((availItem, i) => (
+                                <div
+                                  key={i}
+                                  className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    updateItemField(index, 'itemName', availItem.name);
+                                    setItemSearch({ ...itemSearch, [index]: availItem.name });
+                                    setItemOpen({ ...itemOpen, [index]: false });
+                                  }}
+                                >
+                                  {availItem.name} <span className="text-xs opacity-80">(Stock: {availItem.stock})</span>
                                 </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                              ))
+                            )}
+                          </div>
+                        )}
                       </div>
+                    </div>
 
-                      {/* Stepper Quantity Container */}
-                      <div className="w-full sm:w-1/4 flex flex-col space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Quantity</label>
-                        <div className="qty-container-block flex items-center bg-white border border-gray-300 rounded-md h-[38px] overflow-hidden shadow-sm focus-within:ring-1 focus-within:ring-blue-500">
-                          <button
-                            type="button"
-                            className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold border-r border-gray-300 select-none text-base"
-                            onClick={() => handleStepQuantity(index, 'down')}
-                          >
-                            -
-                          </button>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            placeholder="0"
-                            className="w-full h-full text-center text-sm font-semibold text-gray-800 outline-none px-2 bg-transparent min-w-[45px]"
-                            value={item.quantity}
-                            onChange={(e) => updateItemField(index, 'quantity', e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold border-l border-gray-300 select-none text-base"
-                            onClick={() => handleStepQuantity(index, 'up')}
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Row Actions Delete Button */}
-                      {items.length > 1 && (
+                    {/* QUANTITY TRACKER WITH EXPLICIT CLOSURE EXEMPTION CLASS */}
+                    <div className="w-full sm:w-1/4 flex flex-col space-y-1">
+                      <label className="text-xs font-medium text-gray-600">Quantity</label>
+                      <div className="qty-container-block flex items-center bg-white border border-gray-300 rounded-md h-[38px] overflow-hidden shadow-sm focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500">
+                        {/* Minus Button */}
                         <button
                           type="button"
-                          onClick={() => handleRemoveItemRow(index)}
-                          className="text-red-500 hover:text-red-700 text-xs font-medium border border-red-200 bg-white rounded-md px-3 py-2 h-[38px] transition-colors"
+                          className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold border-r border-gray-300 select-none active:bg-gray-300 touch-manipulation text-base"
+                          onClick={() => handleStepQuantity(index, 'down')}
                         >
-                          Remove
+                          -
                         </button>
-                      )}
+                        
+                        {/* Native typing input box */}
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="0"
+                          className="w-full h-full text-center text-sm font-semibold text-gray-800 outline-none px-2 bg-transparent min-w-[45px]"
+                          value={item.quantity}
+                          onChange={(e) => updateItemField(index, 'quantity', e.target.value)}
+                        />
+                        
+                        {/* Plus Button */}
+                        <button
+                          type="button"
+                          className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold border-l border-gray-300 select-none active:bg-gray-300 touch-manipulation text-base"
+                          onClick={() => handleStepQuantity(index, 'up')}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItemRow(index)}
+                        className="text-red-500 hover:text-red-700 text-xs font-medium border border-red-200 bg-white rounded-md px-3 py-2 h-[38px] transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
             <button
               type="button"
@@ -481,14 +452,12 @@ export default function RequestForm() {
             </button>
           </div>
 
-          {/* User Feedback Operational Banner notifications */}
           {message.text && (
             <div className={`p-3 rounded-md text-sm font-medium ${message.isError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
               {message.text}
             </div>
           )}
 
-          {/* Final Submit Operation Button */}
           <button
             type="submit"
             disabled={submitting}
