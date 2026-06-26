@@ -4,7 +4,8 @@ import { google } from 'googleapis';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { supervisor, location, expectedReturn, issuedTo, items } = body;
+    // Destructuring fields including the new supervisorEmail from frontend
+    const { supervisor, supervisorEmail, location, expectedReturn, issuedTo, items } = body;
 
     // 1. Guard rails for validation
     if (!supervisor || !items || items.length === 0) {
@@ -30,10 +31,7 @@ export async function POST(request: Request) {
 
     // 3. Initialize Google Auth with Read/Write access scope
     const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: email,
-        private_key: privateKey,
-      },
+      credentials: { client_email: email, private_key: privateKey },
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
@@ -59,73 +57,87 @@ export async function POST(request: Request) {
     const minute = formattedParts.find(p => p.type === 'minute')?.value;
     const second = formattedParts.find(p => p.type === 'second')?.value;
 
-    if (hour === '24') {
-      hour = '00';
-    }
-
+    if (hour === '24') hour = '00';
     const timestamp = `${day}/${month}/${year} ${hour}:${minute}:${second}`;
 
-    const toolRows: any[][] = [];
-    const machineRows: any[][] = [];
+    // 5. Separate items by target type before writing row arrays
+    const toolItems = items.filter((item: any) => !String(item.type).toLowerCase().includes('machine'));
+    const machineItems = items.filter((item: any) => String(item.type).toLowerCase().includes('machine'));
 
-    // 5. STRICT 8-COLUMN DATA ROUTING MATRIX
-    items.forEach((item: any) => {
-      const actualItemName = item.itemName || item.name || 'Unknown Item';
+    // Helper function to dynamically map headers and append data row by row
+    async function appendToSheetDynamic(sheetName: string, targetItems: any[]) {
+      if (targetItems.length === 0) return;
+
+      // Fetch row 1 (Headers) to find dynamic positions
+      const headerResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!1:1`,
+      });
+
+      const headers = headerResponse.data.values?.[0] || [];
       
-      // Force construct exactly 8 array items. 
-      // There is NO "item.type" or "Category" inside this array.
-      const rowData = [
-        '=ROW()-1',                       // Col A: S. No
-        timestamp,                        // Col B: Timestamp
-        String(supervisor).trim(),        // Col C: Supervisor Name
-        String(location).trim(),          // Col D: Location
-        String(issuedTo).trim(),          // Col E: Issued To
-        String(actualItemName).trim(),    // Col F: Tool/Machine Name
-        Number(item.quantity) || 1,       // Col G: Quantity
-        String(expectedReturn).trim()     // Col H: Expected Return Date
-      ];
+      // Clean up headers to match accurately by stripping extra spaces
+      const cleanHeaders = headers.map(h => String(h).trim().toLowerCase().replace(/\s+/g, ' '));
 
-      // Use the item type strictly to choose the target sheet, NOT to write to a column
-      if (String(item.type).toLowerCase().includes('machine')) {
-        machineRows.push(rowData);
-      } else {
-        // Defaults to Tools sheet if it's not a machine
-        toolRows.push(rowData);
-      }
-    });
-
-    // 6. Fire parallel appends targeting the strict A:H range limits
-    const appendPromises = [];
-
-    if (toolRows.length > 0) {
-      appendPromises.push(
-        sheets.spreadsheets.values.append({
-          spreadsheetId,
-          range: 'Tools!A:H', 
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: toolRows },
-        })
+      // Map key locations dynamically using resilient variation matching
+      const idxSNo = cleanHeaders.findIndex(h => h.includes('s. no') || h.includes('s.no') || h === 'sl');
+      const idxTimestamp = cleanHeaders.indexOf('timestamp');
+      const idxSupervisor = cleanHeaders.findIndex(h => h.includes('supervisor name') || h === 'supervisor');
+      
+      // 💡 TOUGH FLEXIBLE LOOKUP PATTERN: Catches "supervisor mail id", "supervisor email", "mail id", etc.
+      const idxMail = cleanHeaders.findIndex(h => 
+        h.includes('mail id') || h.includes('email') || h.includes('mailid')
       );
+      
+      const idxLocation = cleanHeaders.indexOf('location');
+      const idxIssuedTo = cleanHeaders.findIndex(h => h.includes('issued to'));
+      const idxItemName = cleanHeaders.findIndex(h => h.includes('name') && (h.includes('tool') || h.includes('machine')));
+      const idxQuantity = cleanHeaders.indexOf('quantity');
+      const idxReturn = cleanHeaders.findIndex(h => h.includes('return'));
+
+      // Log indices to server for debugging if the email column target keeps breaking
+      console.log(`[${sheetName}] Mapping Indices -> Supervisor: ${idxSupervisor}, Mail: ${idxMail}`);
+
+      const rowsToAppend = targetItems.map((item: any) => {
+        // Find the maximum length needed to accommodate all present headers
+        const maxIndex = Math.max(idxSNo, idxTimestamp, idxSupervisor, idxMail, idxLocation, idxIssuedTo, idxItemName, idxQuantity, idxReturn);
+        const rowData = new Array(maxIndex + 1).fill('');
+
+        // Dynamically place elements into their matching index if found
+        if (idxSNo !== -1) rowData[idxSNo] = '=ROW()-1';
+        if (idxTimestamp !== -1) rowData[idxTimestamp] = timestamp;
+        if (idxSupervisor !== -1) rowData[idxSupervisor] = String(supervisor).trim();
+        if (idxMail !== -1) rowData[idxMail] = String(supervisorEmail || '').trim();
+        if (idxLocation !== -1) rowData[idxLocation] = String(location).trim();
+        if (idxIssuedTo !== -1) rowData[idxIssuedTo] = String(issuedTo).trim();
+        if (idxItemName !== -1) rowData[idxItemName] = String(item.itemName || item.name || 'Unknown').trim();
+        if (idxQuantity !== -1) rowData[idxQuantity] = Number(item.quantity) || 1;
+        if (idxReturn !== -1) rowData[idxReturn] = String(expectedReturn).trim();
+
+        return rowData;
+      });
+
+      // Append data targeting the entire header width row block dynamically
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: `${sheetName}!A:Z`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: rowsToAppend },
+      });
     }
 
-    if (machineRows.length > 0) {
-      appendPromises.push(
-        sheets.spreadsheets.values.append({
-          spreadsheetId,
-          range: 'Machines!A:H', 
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: machineRows },
-        })
-      );
-    }
+    // 6. Run dynamic operations in parallel
+    await Promise.all([
+      appendToSheetDynamic('Tools', toolItems),
+      appendToSheetDynamic('Machines', machineItems)
+    ]);
 
-    await Promise.all(appendPromises);
-    return NextResponse.json({ success: true, message: 'Data logged successfully!' });
+    return NextResponse.json({ success: true, message: 'Data logged cleanly with dynamic header mapping!' });
 
   } catch (error: any) {
-    console.error('Google Sheets Submission Failure:', error);
+    console.error('Google Sheets Dynamic Submission Failure:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal transmission failure' },
+      { success: false, error: error.message || 'Internal submission exception' },
       { status: 500 }
     );
   }
