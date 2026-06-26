@@ -16,6 +16,7 @@ interface FormItem {
 export default function RequestForm() {
   const [formData, setFormData] = useState({
     supervisor: '',
+    supervisorMobile: '',
     location: '',
     expectedReturn: '',
   });
@@ -194,7 +195,7 @@ export default function RequestForm() {
 
       if (data.success) {
         setMessage({ text: 'Form logs saved successfully to Google Sheets!', isError: false });
-        setFormData({ supervisor: '', location: '', expectedReturn: '' });
+        setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '' });
         setSupSearch('');
         setItemSearch({});
         setItems([{ type: 'Tools', itemName: '', quantity: '' }]);
