@@ -19,6 +19,7 @@ export default function RequestForm() {
     supervisorMobile: '',
     location: '',
     expectedReturn: '',
+    issuedTo: 'Fabrication Dept', // Defaulting to Fabrication
   });
 
   const [department, setDepartment] = useState<'Fabrication' | 'Other'>('Fabrication');
@@ -42,6 +43,14 @@ export default function RequestForm() {
 
   const supervisorRef = useRef<HTMLDivElement>(null);
   const itemsRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+
+  // Sync Department toggle selections straight into the issuedTo form data value string
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      issuedTo: department === 'Fabrication' ? 'Fabrication Dept' : ''
+    }));
+  }, [department]);
 
   // Fetch Dropdown Data & Handle Click Outside Closures
   useEffect(() => {
@@ -145,7 +154,7 @@ export default function RequestForm() {
     e.preventDefault();
     const hasInvalidQuantity = items.some(i => !i.quantity || parseInt(String(i.quantity), 10) <= 0);
 
-    if (!formData.supervisor || !formData.supervisorMobile || items.some(i => !i.itemName)) {
+    if (!formData.supervisor || !formData.supervisorMobile || !formData.issuedTo || items.some(i => !i.itemName)) {
       setMessage({ text: 'Please complete all required fields and item selections.', isError: true });
       return;
     }
@@ -169,16 +178,15 @@ export default function RequestForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ...formData, 
-          department, 
-          items: formattedItems, 
-          issuedTo: department === 'Fabrication' ? 'Fabrication Dept' : formData.location 
+          items: formattedItems
         }),
       });
       const data = await res.json();
 
       if (data.success) {
         setMessage({ text: 'Form logs saved successfully to Google Sheets!', isError: false });
-        setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '' });
+        setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Fabrication Dept' });
+        setDepartment('Fabrication');
         setSupSearch('');
         setItemSearch({});
         setItems([{ type: 'Tools', itemName: '', quantity: '' }]);
@@ -257,6 +265,42 @@ export default function RequestForm() {
                 value={formData.supervisorMobile}
                 onChange={(e) => setFormData({ ...formData, supervisorMobile: e.target.value.replace(/[^0-9+ ]/g, '') })}
               />
+            </div>
+
+            {/* ISSUED TO DEPARTMENT TOGGLE ROW */}
+            <div className="flex flex-col col-span-1 sm:col-span-2 bg-gray-50 p-4 rounded-md border border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Issued To</label>
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setDepartment('Fabrication')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-150 ${
+                    department === 'Fabrication' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Fabrication Dept
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDepartment('Other')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-150 ${
+                    department === 'Other' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Other Depts
+                </button>
+              </div>
+
+              {department === 'Other' && (
+                <input
+                  type="text"
+                  required
+                  placeholder="Specify custom department or recipient name..."
+                  className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                  value={formData.issuedTo}
+                  onChange={(e) => setFormData({ ...formData, issuedTo: e.target.value })}
+                />
+              )}
             </div>
 
             {/* LOCATION SITE */}
