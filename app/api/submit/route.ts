@@ -4,7 +4,7 @@ import { google } from 'googleapis';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { supervisor, supervisorMobile, location, expectedReturn, issuedTo, items } = body;
+    const { supervisor, supervisorMobile, location, expectedReturn, issuedTo, items, formClass } = body;
 
     if (!supervisor || !items || items.length === 0) {
       return NextResponse.json({ success: false, error: 'Missing information.' }, { status: 400 });
@@ -28,9 +28,7 @@ export async function POST(request: Request) {
     const parts = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(now);
     const timestamp = `${parts.find(p=>p.type==='day')?.value}/${parts.find(p=>p.type==='month')?.value}/${parts.find(p=>p.type==='year')?.value} ${parts.find(p=>p.type==='hour')?.value}:${parts.find(p=>p.type==='minute')?.value}:${parts.find(p=>p.type==='second')?.value}`;
 
-    const toolItems = items.filter((item: any) => !String(item.type).toLowerCase().includes('machine'));
-    const machineItems = items.filter((item: any) => String(item.type).toLowerCase().includes('machine'));
-
+    // Dynamic routing engine helper block
     async function appendToSheetDynamic(sheetName: string, targetItems: any[]) {
       if (targetItems.length === 0) return;
 
@@ -44,7 +42,7 @@ export async function POST(request: Request) {
       const idxMobile = cleanHeaders.findIndex(h => h.includes('mobile') || h.includes('phone') || h.includes('contact'));
       const idxLocation = cleanHeaders.indexOf('location');
       const idxIssuedTo = cleanHeaders.findIndex(h => h.includes('issued to'));
-      const idxItemName = cleanHeaders.findIndex(h => h.includes('name') && (h.includes('tool') || h.includes('machine')));
+      const idxItemName = cleanHeaders.findIndex(h => h.includes('name') && (h.includes('tool') || h.includes('machine') || h.includes('item')));
       const idxQuantity = cleanHeaders.indexOf('quantity');
       const idxReturn = cleanHeaders.findIndex(h => h.includes('return'));
 
@@ -60,7 +58,11 @@ export async function POST(request: Request) {
         if (idxIssuedTo !== -1) rowData[idxIssuedTo] = String(issuedTo).trim();
         if (idxItemName !== -1) rowData[idxItemName] = String(item.itemName || 'Unknown').trim();
         if (idxQuantity !== -1) rowData[idxQuantity] = Number(item.quantity) || 1;
-        if (idxReturn !== -1) rowData[idxReturn] = String(expectedReturn).trim();
+        
+        // Return date applies to returnable tools/machines exclusively
+        if (idxReturn !== -1 && formClass !== 'consumable') {
+          rowData[idxReturn] = String(expectedReturn).trim();
+        }
 
         return rowData;
       });
@@ -73,7 +75,15 @@ export async function POST(request: Request) {
       });
     }
 
-    await Promise.all([appendToSheetDynamic('Tools', toolItems), appendToSheetDynamic('Machines', machineItems)]);
+    // Process logic branch based on whether form context is Consumables or Returnables
+    if (formClass === 'consumable') {
+      await appendToSheetDynamic('Consumables', items);
+    } else {
+      const toolItems = items.filter((item: any) => !String(item.type).toLowerCase().includes('machine'));
+      const machineItems = items.filter((item: any) => String(item.type).toLowerCase().includes('machine'));
+      await Promise.all([appendToSheetDynamic('Tools', toolItems), appendToSheetDynamic('Machines', machineItems)]);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
