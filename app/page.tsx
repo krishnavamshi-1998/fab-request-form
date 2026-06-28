@@ -35,7 +35,7 @@ export default function TrackerPortal() {
   const [tools, setTools] = useState<DropdownItem[]>([]);
   const [machines, setMachines] = useState<DropdownItem[]>([]);
   
-  // New Consumables master lists
+  // Consumables master lists
   const [conItems, setConItems] = useState<DropdownItem[]>([]);
   const [conSupervisors, setConSupervisors] = useState<string[]>([]);
 
@@ -52,15 +52,61 @@ export default function TrackerPortal() {
   const supervisorRef = useRef<HTMLDivElement>(null);
   const itemsRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
-  // Sync mode transitions and wipe states cleanly
+  // 1. RECOVERY SYSTEM: Pull saved progress from browser storage on hard refresh load
+  useEffect(() => {
+    try {
+      const savedMode = sessionStorage.getItem('civil_form_mode');
+      const savedFormData = sessionStorage.getItem('civil_form_data');
+      const savedDept = sessionStorage.getItem('civil_dept');
+      const savedItems = sessionStorage.getItem('civil_items');
+      const savedSupSearch = sessionStorage.getItem('civil_sup_search');
+      const savedItemSearch = sessionStorage.getItem('civil_item_search');
+
+      if (savedMode) setFormMode(savedMode as any);
+      if (savedFormData) setFormData(JSON.parse(savedFormData));
+      if (savedDept) setDepartment(savedDept as any);
+      if (savedItems) setItems(JSON.parse(savedItems));
+      if (savedSupSearch) setSupSearch(savedSupSearch);
+      if (savedItemSearch) setItemSearch(JSON.parse(savedItemSearch));
+    } catch (e) {
+      console.error('Failed to restore temporary form layout memory profile:', e);
+    }
+  }, []);
+
+  // 2. RETENTION SYSTEM: Continuously back up filled data fields to sessionStorage 
+  useEffect(() => {
+    if (loading) return; // Wait until initial hydration setup window finishes
+    sessionStorage.setItem('civil_form_mode', formMode);
+    sessionStorage.setItem('civil_form_data', JSON.stringify(formData));
+    sessionStorage.setItem('civil_dept', department);
+    sessionStorage.setItem('civil_items', JSON.stringify(items));
+    sessionStorage.setItem('civil_sup_search', supSearch);
+    sessionStorage.setItem('civil_item_search', JSON.stringify(itemSearch));
+  }, [formMode, formData, department, items, supSearch, itemSearch, loading]);
+
+  // Sync mode choices neatly with payload structures
   const handleModeSelection = (mode: 'returnable' | 'consumable') => {
     setFormMode(mode);
-    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: mode === 'returnable' ? 'Civil Dept' : 'Civil Dept' });
+    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Civil Dept' });
     setDepartment('Fabrication');
     setSupSearch('');
     setItemSearch({});
     setItems([{ type: mode === 'returnable' ? 'Tools' : 'Consumable', itemName: '', quantity: '' }]);
     setMessage({ text: '', isError: false });
+  };
+
+  // Safe programmatic reset loop clearing storage keys cleanly on submission finish
+  const clearSessionBackup = () => {
+    sessionStorage.removeItem('civil_form_data');
+    sessionStorage.removeItem('civil_dept');
+    sessionStorage.removeItem('civil_items');
+    sessionStorage.removeItem('civil_sup_search');
+    sessionStorage.removeItem('civil_item_search');
+    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Civil Dept' });
+    setDepartment('Fabrication');
+    setSupSearch('');
+    setItemSearch({});
+    setItems([{ type: formMode === 'consumable' ? 'Consumable' : 'Tools', itemName: '', quantity: '' }]);
   };
 
   useEffect(() => {
@@ -85,7 +131,7 @@ export default function TrackerPortal() {
           setConItems((json.consumableItems || []).map((i: any) => ({ name: String(i), stock: 'Live' })));
         }
       } catch (err) {
-        console.error('Failed to load tracking portal dropdown parameters:', err);
+        console.error('Failed to load tracking data drop values:', err);
       } finally {
         setLoading(false);
       }
@@ -119,7 +165,6 @@ export default function TrackerPortal() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Compute targeted context lists depending on active workflow state paths
   const activeSupervisorsList = formMode === 'consumable' ? conSupervisors : supervisors;
   const filteredSupervisors = activeSupervisorsList.filter(name => 
     name.toLowerCase().includes(supSearch.toLowerCase())
@@ -193,16 +238,14 @@ export default function TrackerPortal() {
         body: JSON.stringify({ 
           ...formData, 
           items: formattedItems,
-          formClass: formMode // Tells backend whether to hit Tools/Machines or Consumables
+          formClass: formMode 
         }),
       });
       const data = await res.json();
 
       if (data.success) {
         setMessage({ text: 'Form logs saved successfully to Google Sheets!', isError: false });
-        setTimeout(() => {
-          setFormMode('selection');
-        }, 1500);
+        clearSessionBackup(); // Clear layout memory buffers upon transaction closure confirmation
       } else {
         setMessage({ text: `Submission Failed: ${data.error}`, isError: true });
       }
@@ -243,15 +286,20 @@ export default function TrackerPortal() {
   return (
     <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8 relative">
+        
+        {/* PERSISTENT BACK TO MAIN SELECTION MENU ACTION LINK */}
         <button
           type="button"
-          onClick={() => setFormMode('selection')}
-          className="absolute left-6 top-7 text-xs font-medium text-gray-500 hover:text-blue-600 bg-gray-100 px-2 py-1 rounded"
+          onClick={() => {
+            setFormMode('selection');
+            sessionStorage.setItem('civil_form_mode', 'selection');
+          }}
+          className="absolute left-6 top-7 text-xs font-semibold text-gray-600 hover:text-blue-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded transition-all shadow-sm border border-gray-200"
         >
-          ⬅️ Switch Form Type
+          ⬅️ Back to Main Menu
         </button>
 
-        <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4 pt-2">
+        <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4 pt-4">
           Civil {formMode === 'consumable' ? 'Consumables' : 'Tracker'} Request Form
         </h1>
 
@@ -351,19 +399,17 @@ export default function TrackerPortal() {
               />
             </div>
 
-            {/* CONDITIONAL EXPECTED RETURN DATE (ONLY DISPLAYED FOR RETURNABLES WORKFLOW) */}
-            {formMode === 'returnable' && (
-              <div className="flex flex-col space-y-1 col-span-1 sm:col-span-2">
-                <label className="text-sm font-medium text-gray-700">Expected Return Date</label>
-                <input
-                  type="date"
-                  required
-                  className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                  value={formData.expectedReturn}
-                  onChange={(e) => setFormData({ ...formData, expectedReturn: e.target.value })}
-                />
-              </div>
-            )}
+            {/* EXPECTED RETURN DATE FIELD - UNIFIED TO SHOW ACROSS BOTH MODES */}
+            <div className="flex flex-col space-y-1 col-span-1 sm:col-span-2">
+              <label className="text-sm font-medium text-gray-700">Expected Return Date</label>
+              <input
+                type="date"
+                required
+                className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                value={formData.expectedReturn}
+                onChange={(e) => setFormData({ ...formData, expectedReturn: e.target.value })}
+              />
+            </div>
           </div>
 
           <hr className="border-gray-200" />
@@ -376,7 +422,6 @@ export default function TrackerPortal() {
             ) : (
               <div className="space-y-4">
                 {items.map((item, index) => {
-                  // Determine inventory target maps based on selection state paths
                   let masterList = conItems;
                   if (formMode === 'returnable') {
                     masterList = item.type === 'Tools' ? tools : machines;
