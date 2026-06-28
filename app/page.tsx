@@ -281,23 +281,26 @@ export default function TrackerPortal() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8 relative">
-        
+  <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
+    <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8">
+      
+      {/* 🛠️ FIXED RESPONSIVE HEADER BLOCK */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 mb-6 gap-4">
         <button
           type="button"
           onClick={() => {
             setFormMode('selection');
-            sessionStorage.setItem('Fabrication_form_mode', 'selection');
+            sessionStorage.setItem('fabrication_form_mode', 'selection');
           }}
-          className="absolute left-6 top-7 text-xs font-semibold text-gray-600 hover:text-blue-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded transition-all shadow-sm border border-gray-200"
+          className="inline-flex items-center text-xs font-semibold text-gray-600 hover:text-blue-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded transition-all shadow-sm border border-gray-200 self-start sm:self-auto"
         >
           ⬅️ Back to Main Menu
         </button>
 
-        <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4 pt-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800 text-left sm:text-right">
           Fabrication {formMode === 'consumable' ? 'Consumables' : 'Tracker'} Request Form
         </h1>
+      </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
