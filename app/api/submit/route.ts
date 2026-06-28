@@ -28,7 +28,6 @@ export async function POST(request: Request) {
     const parts = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(now);
     const timestamp = `${parts.find(p=>p.type==='day')?.value}/${parts.find(p=>p.type==='month')?.value}/${parts.find(p=>p.type==='year')?.value} ${parts.find(p=>p.type==='hour')?.value}:${parts.find(p=>p.type==='minute')?.value}:${parts.find(p=>p.type==='second')?.value}`;
 
-    // Dynamic routing engine helper block
     async function appendToSheetDynamic(sheetName: string, targetItems: any[]) {
       if (targetItems.length === 0) return;
 
@@ -59,9 +58,9 @@ export async function POST(request: Request) {
         if (idxItemName !== -1) rowData[idxItemName] = String(item.itemName || 'Unknown').trim();
         if (idxQuantity !== -1) rowData[idxQuantity] = Number(item.quantity) || 1;
         
-        // Return date applies to returnable tools/machines exclusively
-        if (idxReturn !== -1 && formClass !== 'consumable') {
-          rowData[idxReturn] = String(expectedReturn).trim();
+        // 💡 FIXED: Always append return date across all forms if provided
+        if (idxReturn !== -1) {
+          rowData[idxReturn] = String(expectedReturn || '').trim();
         }
 
         return rowData;
@@ -75,7 +74,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Process logic branch based on whether form context is Consumables or Returnables
     if (formClass === 'consumable') {
       await appendToSheetDynamic('Consumables', items);
     } else {

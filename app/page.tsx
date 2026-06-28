@@ -14,7 +14,6 @@ interface FormItem {
 }
 
 export default function TrackerPortal() {
-  // Navigation mode switcher tracking state: 'selection' | 'returnable' | 'consumable'
   const [formMode, setFormMode] = useState<'selection' | 'returnable' | 'consumable'>('selection');
 
   const [formData, setFormData] = useState({
@@ -30,12 +29,10 @@ export default function TrackerPortal() {
     { type: 'Tools', itemName: '', quantity: '' }
   ]);
 
-  // Master lists
   const [supervisors, setSupervisors] = useState<string[]>([]);
   const [tools, setTools] = useState<DropdownItem[]>([]);
   const [machines, setMachines] = useState<DropdownItem[]>([]);
   
-  // Consumables master lists
   const [conItems, setConItems] = useState<DropdownItem[]>([]);
   const [conSupervisors, setConSupervisors] = useState<string[]>([]);
 
@@ -52,7 +49,6 @@ export default function TrackerPortal() {
   const supervisorRef = useRef<HTMLDivElement>(null);
   const itemsRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
-  // 1. RECOVERY SYSTEM: Pull saved progress from browser storage on hard refresh load
   useEffect(() => {
     try {
       const savedMode = sessionStorage.getItem('civil_form_mode');
@@ -73,9 +69,8 @@ export default function TrackerPortal() {
     }
   }, []);
 
-  // 2. RETENTION SYSTEM: Continuously back up filled data fields to sessionStorage 
   useEffect(() => {
-    if (loading) return; // Wait until initial hydration setup window finishes
+    if (loading) return; 
     sessionStorage.setItem('civil_form_mode', formMode);
     sessionStorage.setItem('civil_form_data', JSON.stringify(formData));
     sessionStorage.setItem('civil_dept', department);
@@ -84,7 +79,6 @@ export default function TrackerPortal() {
     sessionStorage.setItem('civil_item_search', JSON.stringify(itemSearch));
   }, [formMode, formData, department, items, supSearch, itemSearch, loading]);
 
-  // Sync mode choices neatly with payload structures
   const handleModeSelection = (mode: 'returnable' | 'consumable') => {
     setFormMode(mode);
     setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Civil Dept' });
@@ -95,7 +89,6 @@ export default function TrackerPortal() {
     setMessage({ text: '', isError: false });
   };
 
-  // Safe programmatic reset loop clearing storage keys cleanly on submission finish
   const clearSessionBackup = () => {
     sessionStorage.removeItem('civil_form_data');
     sessionStorage.removeItem('civil_dept');
@@ -166,9 +159,13 @@ export default function TrackerPortal() {
   }, []);
 
   const activeSupervisorsList = formMode === 'consumable' ? conSupervisors : supervisors;
-  const filteredSupervisors = activeSupervisorsList.filter(name => 
-    name.toLowerCase().includes(supSearch.toLowerCase())
-  );
+  
+  // 💡 MULTI-WORD SMART SEARCH FOR SUPERVISORS
+  const filteredSupervisors = activeSupervisorsList.filter(name => {
+    const searchTerms = supSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const itemNameLower = name.toLowerCase();
+    return searchTerms.every(term => itemNameLower.includes(term));
+  });
 
   const handleAddItemRow = () => {
     setItems([...items, { type: formMode === 'consumable' ? 'Consumable' : 'Tools', itemName: '', quantity: '' }]);
@@ -245,7 +242,7 @@ export default function TrackerPortal() {
 
       if (data.success) {
         setMessage({ text: 'Form logs saved successfully to Google Sheets!', isError: false });
-        clearSessionBackup(); // Clear layout memory buffers upon transaction closure confirmation
+        clearSessionBackup(); 
       } else {
         setMessage({ text: `Submission Failed: ${data.error}`, isError: true });
       }
@@ -287,7 +284,6 @@ export default function TrackerPortal() {
     <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8 relative">
         
-        {/* PERSISTENT BACK TO MAIN SELECTION MENU ACTION LINK */}
         <button
           type="button"
           onClick={() => {
@@ -399,12 +395,11 @@ export default function TrackerPortal() {
               />
             </div>
 
-            {/* EXPECTED RETURN DATE FIELD - UNIFIED TO SHOW ACROSS BOTH MODES */}
+            {/* EXPECTED RETURN DATE FIELD - 💡 OPTIONAL (REMOVED 'required' ATTRIBUTE) */}
             <div className="flex flex-col space-y-1 col-span-1 sm:col-span-2">
-              <label className="text-sm font-medium text-gray-700">Expected Return Date</label>
+              <label className="text-sm font-medium text-gray-700">Expected Return Date (Optional)</label>
               <input
                 type="date"
-                required
                 className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
                 value={formData.expectedReturn}
                 onChange={(e) => setFormData({ ...formData, expectedReturn: e.target.value })}
@@ -429,9 +424,13 @@ export default function TrackerPortal() {
 
                   const currentSearch = itemSearch[index] || '';
                   const isOpen = itemOpen[index] || false;
-                  const filteredItems = masterList.filter(availItem =>
-                    availItem.name.toLowerCase().includes(currentSearch.toLowerCase())
-                  );
+                  
+                  // 💡 MULTI-WORD SMART SEARCH FOR ITEMS
+                  const filteredItems = masterList.filter(availItem => {
+                    const searchTerms = currentSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
+                    const itemNameLower = availItem.name.toLowerCase();
+                    return searchTerms.every(term => itemNameLower.includes(term));
+                  });
                   
                   return (
                     <div key={index} className="flex flex-col sm:flex-row gap-4 items-end bg-gray-50 p-4 rounded-md border border-gray-200 relative">
