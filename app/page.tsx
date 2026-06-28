@@ -298,7 +298,7 @@ export default function TrackerPortal() {
 
       {/* 🎯 FIXED: Main text sits perfectly centered in the middle */}
       <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4">
-        Fabrication {formMode === 'consumable' ? 'Consumables' : 'Tracker'} Request Form
+        Fabrication {formMode === 'consumable' ? 'Consumables' : 'Returnables'} Request Form
       </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
