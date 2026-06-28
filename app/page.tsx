@@ -21,7 +21,7 @@ export default function TrackerPortal() {
     supervisorMobile: '',
     location: '',
     expectedReturn: '',
-    issuedTo: 'Civil Dept', 
+    issuedTo: 'Fabrication Dept', 
   });
 
   const [department, setDepartment] = useState<'Fabrication' | 'Other'>('Fabrication');
@@ -51,12 +51,12 @@ export default function TrackerPortal() {
 
   useEffect(() => {
     try {
-      const savedMode = sessionStorage.getItem('civil_form_mode');
-      const savedFormData = sessionStorage.getItem('civil_form_data');
-      const savedDept = sessionStorage.getItem('civil_dept');
-      const savedItems = sessionStorage.getItem('civil_items');
-      const savedSupSearch = sessionStorage.getItem('civil_sup_search');
-      const savedItemSearch = sessionStorage.getItem('civil_item_search');
+      const savedMode = sessionStorage.getItem('Fabrication_form_mode');
+      const savedFormData = sessionStorage.getItem('Fabrication_form_data');
+      const savedDept = sessionStorage.getItem('Fabrication_dept');
+      const savedItems = sessionStorage.getItem('Fabrication_items');
+      const savedSupSearch = sessionStorage.getItem('Fabrication_sup_search');
+      const savedItemSearch = sessionStorage.getItem('Fabrication_item_search');
 
       if (savedMode) setFormMode(savedMode as any);
       if (savedFormData) setFormData(JSON.parse(savedFormData));
@@ -71,17 +71,17 @@ export default function TrackerPortal() {
 
   useEffect(() => {
     if (loading) return; 
-    sessionStorage.setItem('civil_form_mode', formMode);
-    sessionStorage.setItem('civil_form_data', JSON.stringify(formData));
-    sessionStorage.setItem('civil_dept', department);
-    sessionStorage.setItem('civil_items', JSON.stringify(items));
-    sessionStorage.setItem('civil_sup_search', supSearch);
-    sessionStorage.setItem('civil_item_search', JSON.stringify(itemSearch));
+    sessionStorage.setItem('Fabrication_form_mode', formMode);
+    sessionStorage.setItem('Fabrication_form_data', JSON.stringify(formData));
+    sessionStorage.setItem('Fabrication_dept', department);
+    sessionStorage.setItem('Fabrication_items', JSON.stringify(items));
+    sessionStorage.setItem('Fabrication_sup_search', supSearch);
+    sessionStorage.setItem('Fabrication_item_search', JSON.stringify(itemSearch));
   }, [formMode, formData, department, items, supSearch, itemSearch, loading]);
 
   const handleModeSelection = (mode: 'returnable' | 'consumable') => {
     setFormMode(mode);
-    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Civil Dept' });
+    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Fabrication Dept' });
     setDepartment('Fabrication');
     setSupSearch('');
     setItemSearch({});
@@ -90,12 +90,12 @@ export default function TrackerPortal() {
   };
 
   const clearSessionBackup = () => {
-    sessionStorage.removeItem('civil_form_data');
-    sessionStorage.removeItem('civil_dept');
-    sessionStorage.removeItem('civil_items');
-    sessionStorage.removeItem('civil_sup_search');
-    sessionStorage.removeItem('civil_item_search');
-    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Civil Dept' });
+    sessionStorage.removeItem('Fabrication_form_data');
+    sessionStorage.removeItem('Fabrication_dept');
+    sessionStorage.removeItem('Fabrication_items');
+    sessionStorage.removeItem('Fabrication_sup_search');
+    sessionStorage.removeItem('Fabrication_item_search');
+    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Fabrication Dept' });
     setDepartment('Fabrication');
     setSupSearch('');
     setItemSearch({});
@@ -105,7 +105,7 @@ export default function TrackerPortal() {
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      issuedTo: department === 'Fabrication' ? 'Civil Dept' : 'Other Depts'
+      issuedTo: department === 'Fabrication' ? 'Fabrication Dept' : 'Other Depts'
     }));
   }, [department]);
 
@@ -258,7 +258,7 @@ export default function TrackerPortal() {
       <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center space-y-6 border border-gray-200">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Civil Tracker Request Portal</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Fabrication Tracker Request Portal</h1>
             <p className="text-gray-500 text-sm mt-1">Please select the type of items you wish to issue</p>
           </div>
           <div className="flex flex-col gap-3">
@@ -288,7 +288,7 @@ export default function TrackerPortal() {
           type="button"
           onClick={() => {
             setFormMode('selection');
-            sessionStorage.setItem('civil_form_mode', 'selection');
+            sessionStorage.setItem('Fabrication_form_mode', 'selection');
           }}
           className="absolute left-6 top-7 text-xs font-semibold text-gray-600 hover:text-blue-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded transition-all shadow-sm border border-gray-200"
         >
@@ -296,7 +296,7 @@ export default function TrackerPortal() {
         </button>
 
         <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4 pt-4">
-          Civil {formMode === 'consumable' ? 'Consumables' : 'Tracker'} Request Form
+          Fabrication {formMode === 'consumable' ? 'Consumables' : 'Tracker'} Request Form
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -369,7 +369,7 @@ export default function TrackerPortal() {
                     department === 'Fabrication' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
                   }`}
                 >
-                  Civil Dept
+                  Fabrication Dept
                 </button>
                 <button
                   type="button"
