@@ -18,10 +18,9 @@ export default function TrackerPortal() {
 
   const [formData, setFormData] = useState({
     supervisor: '',
-    supervisorMobile: '',
     location: '',
     expectedReturn: '',
-    issuedTo: 'Fabrication Dept', 
+    issuedTo: 'Civil Dept', 
   });
 
   const [department, setDepartment] = useState<'Fabrication' | 'Other'>('Fabrication');
@@ -51,12 +50,12 @@ export default function TrackerPortal() {
 
   useEffect(() => {
     try {
-      const savedMode = sessionStorage.getItem('Fabrication_form_mode');
-      const savedFormData = sessionStorage.getItem('Fabrication_form_data');
-      const savedDept = sessionStorage.getItem('Fabrication_dept');
-      const savedItems = sessionStorage.getItem('Fabrication_items');
-      const savedSupSearch = sessionStorage.getItem('Fabrication_sup_search');
-      const savedItemSearch = sessionStorage.getItem('Fabrication_item_search');
+      const savedMode = sessionStorage.getItem('civil_form_mode');
+      const savedFormData = sessionStorage.getItem('civil_form_data');
+      const savedDept = sessionStorage.getItem('civil_dept');
+      const savedItems = sessionStorage.getItem('civil_items');
+      const savedSupSearch = sessionStorage.getItem('civil_sup_search');
+      const savedItemSearch = sessionStorage.getItem('civil_item_search');
 
       if (savedMode) setFormMode(savedMode as any);
       if (savedFormData) setFormData(JSON.parse(savedFormData));
@@ -71,17 +70,17 @@ export default function TrackerPortal() {
 
   useEffect(() => {
     if (loading) return; 
-    sessionStorage.setItem('Fabrication_form_mode', formMode);
-    sessionStorage.setItem('Fabrication_form_data', JSON.stringify(formData));
-    sessionStorage.setItem('Fabrication_dept', department);
-    sessionStorage.setItem('Fabrication_items', JSON.stringify(items));
-    sessionStorage.setItem('Fabrication_sup_search', supSearch);
-    sessionStorage.setItem('Fabrication_item_search', JSON.stringify(itemSearch));
+    sessionStorage.setItem('civil_form_mode', formMode);
+    sessionStorage.setItem('civil_form_data', JSON.stringify(formData));
+    sessionStorage.setItem('civil_dept', department);
+    sessionStorage.setItem('civil_items', JSON.stringify(items));
+    sessionStorage.setItem('civil_sup_search', supSearch);
+    sessionStorage.setItem('civil_item_search', JSON.stringify(itemSearch));
   }, [formMode, formData, department, items, supSearch, itemSearch, loading]);
 
   const handleModeSelection = (mode: 'returnable' | 'consumable') => {
     setFormMode(mode);
-    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Fabrication Dept' });
+    setFormData({ supervisor: '', location: '', expectedReturn: '', issuedTo: 'Civil Dept' });
     setDepartment('Fabrication');
     setSupSearch('');
     setItemSearch({});
@@ -90,12 +89,12 @@ export default function TrackerPortal() {
   };
 
   const clearSessionBackup = () => {
-    sessionStorage.removeItem('Fabrication_form_data');
-    sessionStorage.removeItem('Fabrication_dept');
-    sessionStorage.removeItem('Fabrication_items');
-    sessionStorage.removeItem('Fabrication_sup_search');
-    sessionStorage.removeItem('Fabrication_item_search');
-    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Fabrication Dept' });
+    sessionStorage.removeItem('civil_form_data');
+    sessionStorage.removeItem('civil_dept');
+    sessionStorage.removeItem('civil_items');
+    sessionStorage.removeItem('civil_sup_search');
+    sessionStorage.removeItem('civil_item_search');
+    setFormData({ supervisor: '', location: '', expectedReturn: '', issuedTo: 'Civil Dept' });
     setDepartment('Fabrication');
     setSupSearch('');
     setItemSearch({});
@@ -105,7 +104,7 @@ export default function TrackerPortal() {
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      issuedTo: department === 'Fabrication' ? 'Fabrication Dept' : 'Other Depts'
+      issuedTo: department === 'Fabrication' ? 'Civil Dept' : 'Other Depts'
     }));
   }, [department]);
 
@@ -160,7 +159,6 @@ export default function TrackerPortal() {
 
   const activeSupervisorsList = formMode === 'consumable' ? conSupervisors : supervisors;
   
-  // 💡 MULTI-WORD SMART SEARCH FOR SUPERVISORS
   const filteredSupervisors = activeSupervisorsList.filter(name => {
     const searchTerms = supSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
     const itemNameLower = name.toLowerCase();
@@ -210,7 +208,7 @@ export default function TrackerPortal() {
     e.preventDefault();
     const hasInvalidQuantity = items.some(i => !i.quantity || parseInt(String(i.quantity), 10) <= 0);
 
-    if (!formData.supervisor || !formData.supervisorMobile || !formData.issuedTo || items.some(i => !i.itemName)) {
+    if (!formData.supervisor || !formData.issuedTo || items.some(i => !i.itemName)) {
       setMessage({ text: 'Please complete all required fields and item selections.', isError: true });
       return;
     }
@@ -258,7 +256,7 @@ export default function TrackerPortal() {
       <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center space-y-6 border border-gray-200">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Fabrication Tracker Request Portal</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Civil Tracker Request Portal</h1>
             <p className="text-gray-500 text-sm mt-1">Please select the type of items you wish to issue</p>
           </div>
           <div className="flex flex-col gap-3">
@@ -281,31 +279,29 @@ export default function TrackerPortal() {
   }
 
   return (
-  <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
-    <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8 relative pt-14 sm:pt-16">
-      
-      {/* 🚀 FIXED: Pushed higher up and to the left out of the way */}
-      <button
-        type="button"
-        onClick={() => {
-          setFormMode('selection');
-          sessionStorage.setItem('fabrication_form_mode', 'selection');
-        }}
-        className="absolute left-6 top-5 text-xs font-semibold text-gray-600 hover:text-blue-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded transition-all shadow-sm border border-gray-200"
-      >
-        ⬅️ Back to Main Menu
-      </button>
+    <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8 relative pt-14 sm:pt-16">
+        
+        <button
+          type="button"
+          onClick={() => {
+            setFormMode('selection');
+            sessionStorage.setItem('civil_form_mode', 'selection');
+          }}
+          className="absolute left-6 top-5 text-xs font-semibold text-gray-600 hover:text-blue-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded transition-all shadow-sm border border-gray-200"
+        >
+          ⬅️ Back to Main Menu
+        </button>
 
-      {/* 🎯 FIXED: Main text sits perfectly centered in the middle */}
-      <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4">
-        Fabrication {formMode === 'consumable' ? 'Consumables' : 'Returnables'} Request Form
-      </h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4">
+          Fabrication {formMode === 'consumable' ? 'Consumables' : 'Returnables'} Request Form
+        </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             
-            {/* DYNAMIC SUPERVISOR DROPDOWN */}
-            <div className="flex flex-col space-y-1 relative" ref={supervisorRef}>
+            {/* DYNAMIC SUPERVISOR DROPDOWN (Now takes full width single row cleanly since phone field is removed) */}
+            <div className="flex flex-col space-y-1 relative col-span-1 sm:col-span-2" ref={supervisorRef}>
               <label className="text-sm font-medium text-gray-700">Supervisor Name</label>
               <div className="relative">
                 <input
@@ -328,36 +324,23 @@ export default function TrackerPortal() {
                     ) : (
                       <div className="divide-y divide-gray-100">
                         {filteredSupervisors.map((name, i) => (
-                         <div
-                         key={i}
-                         className="p-2 text-sm text-gray-800 hover:bg-blue-500 hover:text-white filteredItems.mapcursor-pointer transition-colors"
-                         onClick={() => {
-                                setFormData({ ...formData, supervisor: name });
-                                setSupSearch(name);
-                                setSupOpen(false);
-                              }}
-  >
-                       {name}
-                     </div>
-))}
+                          <div
+                            key={i}
+                            className="p-2 text-sm text-gray-800 hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
+                            onClick={() => {
+                              setFormData({ ...formData, supervisor: name });
+                              setSupSearch(name);
+                              setSupOpen(false);
+                            }}
+                          >
+                            {name}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* SUPERVISOR MOBILE NUMBER FIELD */}
-            <div className="flex flex-col space-y-1">
-              <label className="text-sm font-medium text-gray-700">Supervisor Mobile Number (Whatsapp Number Only)</label>
-              <input
-                type="tel"
-                required
-                placeholder="Enter WhatsApp mobile number"
-                className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
-                value={formData.supervisorMobile}
-                onChange={(e) => setFormData({ ...formData, supervisorMobile: e.target.value.replace(/[^0-9+ ]/g, '') })}
-              />
             </div>
 
             {/* ISSUED TO DEPARTMENT TOGGLE ROW */}
@@ -371,7 +354,7 @@ export default function TrackerPortal() {
                     department === 'Fabrication' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
                   }`}
                 >
-                  Fabrication Dept
+                  Civil Dept
                 </button>
                 <button
                   type="button"
@@ -397,12 +380,14 @@ export default function TrackerPortal() {
               />
             </div>
 
-            {/* EXPECTED RETURN DATE FIELD - 💡 OPTIONAL (REMOVED 'required' ATTRIBUTE) */}
+            {/* EXPECTED RETURN DATE FIELD */}
             <div className="flex flex-col space-y-1 col-span-1 sm:col-span-2">
-              <label className="text-sm font-medium text-gray-700">Expected Return Date {formMode === 'consumable' ? '(Optional)' : ''}</label>
+              <label className="text-sm font-medium text-gray-700">
+                Expected Return Date {formMode === 'consumable' ? '(Optional)' : ''}
+              </label>
               <input
                 type="date"
-                required={formMode === 'returnable'}
+                required={formMode === 'returnable'} 
                 className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
                 value={formData.expectedReturn}
                 onChange={(e) => setFormData({ ...formData, expectedReturn: e.target.value })}
@@ -428,7 +413,6 @@ export default function TrackerPortal() {
                   const currentSearch = itemSearch[index] || '';
                   const isOpen = itemOpen[index] || false;
                   
-                  // 💡 MULTI-WORD SMART SEARCH FOR ITEMS
                   const filteredItems = masterList.filter(availItem => {
                     const searchTerms = currentSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
                     const itemNameLower = availItem.name.toLowerCase();
@@ -440,16 +424,16 @@ export default function TrackerPortal() {
                       
                       {formMode === 'returnable' && (
                         <div className="w-full sm:w-1/4 flex flex-col space-y-1">
-  <label className="text-xs font-medium text-gray-600">Category</label>
-  <select
-    className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
-    value={item.type}
-    onChange={(e) => updateItemField(index, 'type', e.target.value as any)}
-  >
-    <option value="Tools" className="text-gray-800">Tools</option>
-    <option value="Machine" className="text-gray-800">Machine</option>
-  </select>
-</div>
+                          <label className="text-xs font-medium text-gray-600">Category</label>
+                          <select
+                            className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                            value={item.type}
+                            onChange={(e) => updateItemField(index, 'type', e.target.value as any)}
+                          >
+                            <option value="Tools" className="text-gray-800">Tools</option>
+                            <option value="Machine" className="text-gray-800">Machine</option>
+                          </select>
+                        </div>
                       )}
 
                       <div className={`w-full flex flex-col space-y-1 relative ${formMode === 'returnable' ? 'sm:w-2/4' : 'sm:w-3/4'}`} ref={(el) => { itemsRefs.current[index] = el; }}>
@@ -458,7 +442,7 @@ export default function TrackerPortal() {
                           <input
                             type="text"
                             required
-                            placeholder={`🔍 Search item designations...`}
+                            placeholder="🔍 Search item designations..."
                             className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
                             value={currentSearch}
                             onFocus={() => setItemOpen({ ...itemOpen, [index]: true })}
@@ -475,18 +459,18 @@ export default function TrackerPortal() {
                               ) : (
                                 <div className="divide-y divide-gray-100">
                                   {filteredItems.map((availItem, i) => (
-  <div
-    key={i}
-    className="p-2 text-sm text-gray-800 hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
-    onClick={() => {
-      updateItemField(index, 'itemName', availItem.name);
-      setItemSearch({ ...itemSearch, [index]: availItem.name });
-      setItemOpen({ ...itemOpen, [index]: false });
-    }}
-  >
-    {availItem.name}
-  </div>
-))}
+                                    <div
+                                      key={i}
+                                      className="p-2 text-sm text-gray-800 hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        updateItemField(index, 'itemName', availItem.name);
+                                        setItemSearch({ ...itemSearch, [index]: availItem.name });
+                                        setItemOpen({ ...itemOpen, [index]: false });
+                                      }}
+                                    >
+                                      {availItem.name}
+                                    </div>
+                                  ))}
                                 </div>
                               )}
                             </div>
@@ -495,30 +479,13 @@ export default function TrackerPortal() {
                       </div>
 
                       <div className="w-full sm:w-1/4 flex flex-col space-y-1">
-  <label className="text-xs font-medium text-gray-600">Quantity</label>
-  <div className="qty-container-block flex items-center bg-white border border-gray-300 rounded-md h-[38px] overflow-hidden shadow-sm">
-    <button 
-      type="button" 
-      className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold" 
-      onClick={() => handleStepQuantity(index, 'down')}
-    >
-      -
-    </button>
-    <input 
-      type="text" 
-      className="w-full text-center text-sm font-semibold text-gray-800 outline-none bg-transparent" 
-      value={item.quantity} 
-      onChange={(e) => updateItemField(index, 'quantity', e.target.value)} 
-    />
-    <button 
-      type="button" 
-      className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold" 
-      onClick={() => handleStepQuantity(index, 'up')}
-    >
-      +
-    </button>
-  </div>
-</div>
+                        <label className="text-xs font-medium text-gray-600">Quantity</label>
+                        <div className="qty-container-block flex items-center bg-white border border-gray-300 rounded-md h-[38px] overflow-hidden shadow-sm">
+                          <button type="button" className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold" onClick={() => handleStepQuantity(index, 'down')}>-</button>
+                          <input type="text" className="w-full text-center text-sm font-semibold text-gray-800 outline-none bg-transparent" value={item.quantity} onChange={(e) => updateItemField(index, 'quantity', e.target.value)} />
+                          <button type="button" className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold" onClick={() => handleStepQuantity(index, 'up')}>+</button>
+                        </div>
+                      </div>
 
                       {items.length > 1 && (
                         <button type="button" onClick={() => handleRemoveItemRow(index)} className="text-red-500 border border-red-200 bg-white rounded-md px-3 py-2 h-[38px]">Remove</button>

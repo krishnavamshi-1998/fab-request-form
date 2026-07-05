@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import nodemailer from 'nodemailer'; // 👈 Added email handler
+import nodemailer from 'nodemailer';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { supervisor, supervisorMobile, location, expectedReturn, issuedTo, items, formClass } = body;
+    const { supervisor, location, expectedReturn, issuedTo, items, formClass } = body;
 
     if (!supervisor || !items || items.length === 0) {
       return NextResponse.json({ success: false, error: 'Missing information.' }, { status: 400 });
@@ -25,9 +25,55 @@ export async function POST(request: Request) {
     });
     const sheets = google.sheets({ version: 'v4', auth });
 
+    // ==========================================================
+    // 🔍 DYNAMIC LOOKUP: FETCH CONTACT FROM MASTER STOCK SHEET
+    // ==========================================================
+    let supervisorMobile = '';
+    try {
+      const masterStockResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'Master Stock'!1:500`, // Pull up to 500 rows to find matching contact lines
+      });
+      const masterRows = masterStockResponse.data.values || [];
+      if (masterRows.length > 0) {
+        const masterHeaders = masterRows[0].map(h => String(h).trim().toLowerCase());
+        const supNameIdx = masterHeaders.findIndex(h => h.includes('supervisor name') || h === 'supervisor');
+        const supContactIdx = masterHeaders.findIndex(h => h.includes('supervisor contact') || h.includes('contact'));
+
+        if (supNameIdx !== -1 && supContactIdx !== -1) {
+          const matchedRow = masterRows.slice(1).find(row => 
+            row[supNameIdx] && String(row[supNameIdx]).trim().toLowerCase() === String(supervisor).trim().toLowerCase()
+          );
+          if (matchedRow && matchedRow[supContactIdx]) {
+            supervisorMobile = String(matchedRow[supContactIdx]).trim();
+          }
+        }
+      }
+    } catch (lookupError) {
+      console.error("Failed to fetch contact from Master Stock sheet lookup system:", lookupError);
+    }
+    // ==========================================================
+
     const now = new Date();
-    const parts = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(now);
-    const timestamp = `${parts.find(p=>p.type==='day')?.value}/${parts.find(p=>p.type==='month')?.value}/${parts.find(p=>p.type==='year')?.value} ${parts.find(p=>p.type==='hour')?.value}:${parts.find(p=>p.type==='minute')?.value}:${parts.find(p=>p.type==='second')?.value}`;
+    const parts = new Intl.DateTimeFormat('en-IN', { 
+      timeZone: 'Asia/Kolkata', 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit', 
+      hour12: false 
+    }).formatToParts(now);
+
+    const d = parts.find(p => p.type === 'day')?.value || '01';
+    const m = parts.find(p => p.type === 'month')?.value || 'Jan';
+    const y = parts.find(p => p.type === 'year')?.value || '2026';
+    const hr = parts.find(p => p.type === 'hour')?.value || '00';
+    const min = parts.find(p => p.type === 'minute')?.value || '00';
+    const sec = parts.find(p => p.type === 'second')?.value || '00';
+
+    const timestamp = `${d}/${m}/${y} ${hr}:${min}:${sec}`;
 
     async function appendToSheetDynamic(sheetName: string, targetItems: any[]) {
       if (targetItems.length === 0) return;
@@ -53,7 +99,7 @@ export async function POST(request: Request) {
         if (idxSNo !== -1) rowData[idxSNo] = '=ROW()-1';
         if (idxTimestamp !== -1) rowData[idxTimestamp] = timestamp;
         if (idxSupervisor !== -1) rowData[idxSupervisor] = String(supervisor).trim();
-        if (idxMobile !== -1) rowData[idxMobile] = String(supervisorMobile || '').trim();
+        if (idxMobile !== -1) rowData[idxMobile] = supervisorMobile; // Populated from Master Stock mapping
         if (idxLocation !== -1) rowData[idxLocation] = String(location).trim();
         if (idxIssuedTo !== -1) rowData[idxIssuedTo] = String(issuedTo).trim();
         if (idxItemName !== -1) rowData[idxItemName] = String(item.itemName || 'Unknown').trim();
@@ -83,11 +129,11 @@ export async function POST(request: Request) {
     }
 
     // ==========================================
-    // 📧 NEW FEATURE: SEND EMAIL ALERT TO MANAGER
+    // 📧 EMAIL DISPATCHER 
     // ==========================================
     try {
-      const managerEmail = "krishna.vamshi@sadhguru.org"; // 👈 Put Store Manager Email here
-      const senderEmail = process.env.ALERT_EMAIL_USER;       // Setup credentials via environment variables
+      const managerEmail = "STORE_MANAGER_EMAIL@GMAIL.COM"; 
+      const senderEmail = process.env.ALERT_EMAIL_USER;       
       const senderPass = process.env.ALERT_EMAIL_PASS;       
 
       if (senderEmail && senderPass && managerEmail) {
@@ -97,31 +143,33 @@ export async function POST(request: Request) {
         });
 
         const formTypeName = formClass === 'consumable' ? 'Consumables' : 'Returnables';
-        const itemRowsHtml = items.map((i: any) => `<li><strong>[${i.type || formTypeName}]</strong> ${i.itemName} — Qty: ${i.quantity}</li>`).join('');
+        const itemRowsHtml = (items || []).map((i: any) => `<li><strong>[${i.type || formTypeName}]</strong> ${i.itemName || ''} — Qty: ${i.quantity || 1}</li>`).join('');
 
         const mailOptions = {
           from: `"Material Portal Alert" <${senderEmail}>`,
           to: managerEmail,
           subject: `⚠️ New ${formTypeName} Request Submitted - ${supervisor}`,
           html: `
-            <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; rounded: 8px;">
-              <h2 style="color: #1e3a8a; border-b: 1px solid #eee; padding-bottom: 10px;">Material Issue Notification</h2>
-              <p>A new form has been submitted with the following logs:</p>
+            <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 8px;">
+              <h2 style="color: #1e3a8a; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">Material Issue Notification</h2>
+              <p>A new form log has been recorded with the following details:</p>
               <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                <tr><td style="padding: 6px 0; font-weight: bold; width: 150px;">Form Type:</td><td>${formTypeName}</td></tr>
-                <tr><td style="padding: 6px 0; font-weight: bold;">Supervisor:</td><td>${supervisor}</td></tr>
-                <tr><td style="padding: 6px 0; font-weight: bold;">Mobile Line:</td><td>${supervisorMobile}</td></tr>
-                <tr><td style="padding: 6px 0; font-weight: bold;">Site Location:</td><td>${location}</td></tr>
-                <tr><td style="padding: 6px 0; font-weight: bold;">Issued To:</td><td>${issuedTo}</td></tr>
-                <tr><td style="padding: 6px 0; font-weight: bold;">Expected Return:</td><td>${expectedReturn || 'N/A (Consumable)'}</td></tr>
-                <tr><td style="padding: 6px 0; font-weight: bold;">Timestamp:</td><td>${timestamp}</td></tr>
+                <tbody>
+                  <tr><td style="padding: 6px 0; font-weight: bold; width: 150px;">Form Type:</td><td>${formTypeName}</td></tr>
+                  <tr><td style="padding: 6px 0; font-weight: bold;">Supervisor:</td><td>${supervisor}</td></tr>
+                  <tr><td style="padding: 6px 0; font-weight: bold;">Mobile Line:</td><td>${supervisorMobile || 'Fetched from Master Sheet'}</td></tr>
+                  <tr><td style="padding: 6px 0; font-weight: bold;">Site Location:</td><td>${location}</td></tr>
+                  <tr><td style="padding: 6px 0; font-weight: bold;">Issued To:</td><td>${issuedTo}</td></tr>
+                  <tr><td style="padding: 6px 0; font-weight: bold;">Expected Return:</td><td>${expectedReturn || 'N/A'}</td></tr>
+                  <tr><td style="padding: 6px 0; font-weight: bold;">Timestamp:</td><td>${timestamp}</td></tr>
+                </tbody>
               </table>
-              <h4 style="color: #475569; margin-bottom: 8px;">Items Requested:</h4>
-              <ul style="padding-left: 20px; line-height: 1.6;">
+              <h4 style="color: #475569; margin-bottom: 8px; margin-top: 0;">Items Requested:</h4>
+              <ul style="padding-left: 20px; line-height: 1.6; margin-top: 0;">
                 ${itemRowsHtml}
               </ul>
               <hr style="border: 0; border-top: 1px solid #eee; margin-top: 25px;" />
-              <p style="font-size: 11px; color: #94a3b8;">This is an automated tracking server message.</p>
+              <p style="font-size: 11px; color: #94a3b8; margin-bottom: 0;">This is an automated tracking server message.</p>
             </div>
           `
         };
@@ -129,13 +177,11 @@ export async function POST(request: Request) {
         await transporter.sendMail(mailOptions);
       }
     } catch (mailError) {
-      console.error("Email notification pipeline failed to dispatch:", mailError);
-      // We don't block the API return if an email fails; the spreadsheet data is already saved successfully!
+      console.error("Email notification pipeline error:", mailError);
     }
-    // ==========================================
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || 'Server side failure.' }, { status: 500 });
   }
 }
