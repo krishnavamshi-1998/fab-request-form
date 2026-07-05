@@ -28,22 +28,31 @@ export async function POST(request: Request) {
     // ==========================================================
     // 🔍 DYNAMIC LOOKUP: FETCH CONTACT FROM MASTER STOCK SHEET
     // ==========================================================
+    // ==========================================================
+    // 🔍 DYNAMIC LOOKUP: FETCH CONTACT FROM MASTER STOCK SHEET (ROW 2 HEADERS)
+    // ==========================================================
     let supervisorMobile = '';
     try {
       const masterStockResponse = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `'Master Stock'!1:500`, // Pull up to 500 rows to find matching contact lines
+        range: `'Master Stock'!1:500`, 
       });
       const masterRows = masterStockResponse.data.values || [];
-      if (masterRows.length > 0) {
-        const masterHeaders = masterRows[0].map(h => String(h).trim().toLowerCase());
+      
+      // 🎯 CHANGED: Look at row 2 (index 1) for headers because row 1 is empty or a title
+      if (masterRows.length > 1) {
+        const masterHeaders = masterRows[1].map(h => String(h).trim().toLowerCase());
         const supNameIdx = masterHeaders.findIndex(h => h.includes('supervisor name') || h === 'supervisor');
         const supContactIdx = masterHeaders.findIndex(h => h.includes('supervisor contact') || h.includes('contact'));
 
         if (supNameIdx !== -1 && supContactIdx !== -1) {
-          const matchedRow = masterRows.slice(1).find(row => 
-            row[supNameIdx] && String(row[supNameIdx]).trim().toLowerCase() === String(supervisor).trim().toLowerCase()
-          );
+          // 🎯 CHANGED: Slice from index 2 (row 3) downwards to read the actual data rows
+          const matchedRow = masterRows.slice(2).find(row => {
+            const cellValue = row[supNameIdx] ? String(row[supNameIdx]).trim().toLowerCase() : '';
+            const searchValues = String(supervisor).trim().toLowerCase();
+            return cellValue === searchValues;
+          });
+          
           if (matchedRow && matchedRow[supContactIdx]) {
             supervisorMobile = String(matchedRow[supContactIdx]).trim();
           }
@@ -52,6 +61,7 @@ export async function POST(request: Request) {
     } catch (lookupError) {
       console.error("Failed to fetch contact from Master Stock sheet lookup system:", lookupError);
     }
+    // ==========================================================
     // ==========================================================
 
     const now = new Date();
