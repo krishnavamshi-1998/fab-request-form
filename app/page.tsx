@@ -312,7 +312,7 @@ export default function TrackerPortal() {
                   type="text"
                   required
                   placeholder="🔍 Search & select supervisor..."
-                  className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                  className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
                   value={supSearch}
                   onFocus={() => setSupOpen(true)}
                   onChange={(e) => {
@@ -354,7 +354,7 @@ export default function TrackerPortal() {
                 type="tel"
                 required
                 placeholder="Enter WhatsApp mobile number"
-                className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
                 value={formData.supervisorMobile}
                 onChange={(e) => setFormData({ ...formData, supervisorMobile: e.target.value.replace(/[^0-9+ ]/g, '') })}
               />
@@ -391,7 +391,7 @@ export default function TrackerPortal() {
               <input
                 type="text"
                 required
-                className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               />
@@ -403,7 +403,7 @@ export default function TrackerPortal() {
               <input
                 type="date"
                 required={formMode === 'returnable'}
-                className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
                 value={formData.expectedReturn}
                 onChange={(e) => setFormData({ ...formData, expectedReturn: e.target.value })}
               />
