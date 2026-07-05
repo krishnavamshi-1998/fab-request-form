@@ -328,18 +328,18 @@ export default function TrackerPortal() {
                     ) : (
                       <div className="divide-y divide-gray-100">
                         {filteredSupervisors.map((name, i) => (
-                          <div
-                            key={i}
-                            className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
-                            onClick={() => {
-                              setFormData({ ...formData, supervisor: name });
-                              setSupSearch(name);
-                              setSupOpen(false);
-                            }}
-                          >
-                            {name}
-                          </div>
-                        ))}
+                         <div
+                         key={i}
+                         className="p-2 text-sm text-gray-800 hover:bg-blue-500 hover:text-white filteredItems.mapcursor-pointer transition-colors"
+                         onClick={() => {
+                                setFormData({ ...formData, supervisor: name });
+                                setSupSearch(name);
+                                setSupOpen(false);
+                              }}
+  >
+                       {name}
+                     </div>
+))}
                       </div>
                     )}
                   </div>
@@ -475,18 +475,18 @@ export default function TrackerPortal() {
                               ) : (
                                 <div className="divide-y divide-gray-100">
                                   {filteredItems.map((availItem, i) => (
-                                    <div
-                                      key={i}
-                                      className="p-2 text-sm hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
-                                      onClick={() => {
-                                        updateItemField(index, 'itemName', availItem.name);
-                                        setItemSearch({ ...itemSearch, [index]: availItem.name });
-                                        setItemOpen({ ...itemOpen, [index]: false });
-                                      }}
-                                    >
-                                      {availItem.name}
-                                    </div>
-                                  ))}
+  <div
+    key={i}
+    className="p-2 text-sm text-gray-800 hover:bg-blue-500 hover:text-white cursor-pointer transition-colors"
+    onClick={() => {
+      updateItemField(index, 'itemName', availItem.name);
+      setItemSearch({ ...itemSearch, [index]: availItem.name });
+      setItemOpen({ ...itemOpen, [index]: false });
+    }}
+  >
+    {availItem.name}
+  </div>
+))}
                                 </div>
                               )}
                             </div>
