@@ -459,7 +459,7 @@ export default function TrackerPortal() {
                             type="text"
                             required
                             placeholder={`🔍 Search item designations...`}
-                            className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
                             value={currentSearch}
                             onFocus={() => setItemOpen({ ...itemOpen, [index]: true })}
                             onChange={(e) => {
