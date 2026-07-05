@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import nodemailer from 'nodemailer'; // 👈 Added email handler
 
 export async function POST(request: Request) {
   try {
@@ -58,7 +59,6 @@ export async function POST(request: Request) {
         if (idxItemName !== -1) rowData[idxItemName] = String(item.itemName || 'Unknown').trim();
         if (idxQuantity !== -1) rowData[idxQuantity] = Number(item.quantity) || 1;
         
-        // 💡 FIXED: Always append return date across all forms if provided
         if (idxReturn !== -1) {
           rowData[idxReturn] = String(expectedReturn || '').trim();
         }
@@ -81,6 +81,58 @@ export async function POST(request: Request) {
       const machineItems = items.filter((item: any) => String(item.type).toLowerCase().includes('machine'));
       await Promise.all([appendToSheetDynamic('Tools', toolItems), appendToSheetDynamic('Machines', machineItems)]);
     }
+
+    // ==========================================
+    // 📧 NEW FEATURE: SEND EMAIL ALERT TO MANAGER
+    // ==========================================
+    try {
+      const managerEmail = "krishna.vamshi@sadhguru.org"; // 👈 Put Store Manager Email here
+      const senderEmail = process.env.ALERT_EMAIL_USER;       // Setup credentials via environment variables
+      const senderPass = process.env.ALERT_EMAIL_PASS;       
+
+      if (senderEmail && senderPass && managerEmail) {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: { user: senderEmail, pass: senderPass }
+        });
+
+        const formTypeName = formClass === 'consumable' ? 'Consumables' : 'Returnables';
+        const itemRowsHtml = items.map((i: any) => `<li><strong>[${i.type || formTypeName}]</strong> ${i.itemName} — Qty: ${i.quantity}</li>`).join('');
+
+        const mailOptions = {
+          from: `"Material Portal Alert" <${senderEmail}>`,
+          to: managerEmail,
+          subject: `⚠️ New ${formTypeName} Request Submitted - ${supervisor}`,
+          html: `
+            <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; rounded: 8px;">
+              <h2 style="color: #1e3a8a; border-b: 1px solid #eee; padding-bottom: 10px;">Material Issue Notification</h2>
+              <p>A new form has been submitted with the following logs:</p>
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <tr><td style="padding: 6px 0; font-weight: bold; width: 150px;">Form Type:</td><td>${formTypeName}</td></tr>
+                <tr><td style="padding: 6px 0; font-weight: bold;">Supervisor:</td><td>${supervisor}</td></tr>
+                <tr><td style="padding: 6px 0; font-weight: bold;">Mobile Line:</td><td>${supervisorMobile}</td></tr>
+                <tr><td style="padding: 6px 0; font-weight: bold;">Site Location:</td><td>${location}</td></tr>
+                <tr><td style="padding: 6px 0; font-weight: bold;">Issued To:</td><td>${issuedTo}</td></tr>
+                <tr><td style="padding: 6px 0; font-weight: bold;">Expected Return:</td><td>${expectedReturn || 'N/A (Consumable)'}</td></tr>
+                <tr><td style="padding: 6px 0; font-weight: bold;">Timestamp:</td><td>${timestamp}</td></tr>
+              </table>
+              <h4 style="color: #475569; margin-bottom: 8px;">Items Requested:</h4>
+              <ul style="padding-left: 20px; line-height: 1.6;">
+                ${itemRowsHtml}
+              </ul>
+              <hr style="border: 0; border-top: 1px solid #eee; margin-top: 25px;" />
+              <p style="font-size: 11px; color: #94a3b8;">This is an automated tracking server message.</p>
+            </div>
+          `
+        };
+
+        await transporter.sendMail(mailOptions);
+      }
+    } catch (mailError) {
+      console.error("Email notification pipeline failed to dispatch:", mailError);
+      // We don't block the API return if an email fails; the spreadsheet data is already saved successfully!
+    }
+    // ==========================================
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
