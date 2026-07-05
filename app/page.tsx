@@ -440,16 +440,16 @@ export default function TrackerPortal() {
                       
                       {formMode === 'returnable' && (
                         <div className="w-full sm:w-1/4 flex flex-col space-y-1">
-                          <label className="text-xs font-medium text-gray-600">Category</label>
-                          <select
-                            className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                            value={item.type}
-                            onChange={(e) => updateItemField(index, 'type', e.target.value as any)}
-                          >
-                            <option value="Tools">Tools</option>
-                            <option value="Machine">Machine</option>
-                          </select>
-                        </div>
+  <label className="text-xs font-medium text-gray-600">Category</label>
+  <select
+    className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+    value={item.type}
+    onChange={(e) => updateItemField(index, 'type', e.target.value as any)}
+  >
+    <option value="Tools" className="text-gray-800">Tools</option>
+    <option value="Machine" className="text-gray-800">Machine</option>
+  </select>
+</div>
                       )}
 
                       <div className={`w-full flex flex-col space-y-1 relative ${formMode === 'returnable' ? 'sm:w-2/4' : 'sm:w-3/4'}`} ref={(el) => { itemsRefs.current[index] = el; }}>
@@ -495,13 +495,30 @@ export default function TrackerPortal() {
                       </div>
 
                       <div className="w-full sm:w-1/4 flex flex-col space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Quantity</label>
-                        <div className="qty-container-block flex items-center bg-white border border-gray-300 rounded-md h-[38px] overflow-hidden shadow-sm">
-                          <button type="button" className="px-3 h-full bg-gray-100 hover:bg-gray-200" onClick={() => handleStepQuantity(index, 'down')}>-</button>
-                          <input type="text" className="w-full text-center text-sm font-semibold outline-none bg-transparent" value={item.quantity} onChange={(e) => updateItemField(index, 'quantity', e.target.value)} />
-                          <button type="button" className="px-3 h-full bg-gray-100 hover:bg-gray-200" onClick={() => handleStepQuantity(index, 'up')}>+</button>
-                        </div>
-                      </div>
+  <label className="text-xs font-medium text-gray-600">Quantity</label>
+  <div className="qty-container-block flex items-center bg-white border border-gray-300 rounded-md h-[38px] overflow-hidden shadow-sm">
+    <button 
+      type="button" 
+      className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold" 
+      onClick={() => handleStepQuantity(index, 'down')}
+    >
+      -
+    </button>
+    <input 
+      type="text" 
+      className="w-full text-center text-sm font-semibold text-gray-800 outline-none bg-transparent" 
+      value={item.quantity} 
+      onChange={(e) => updateItemField(index, 'quantity', e.target.value)} 
+    />
+    <button 
+      type="button" 
+      className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold" 
+      onClick={() => handleStepQuantity(index, 'up')}
+    >
+      +
+    </button>
+  </div>
+</div>
 
                       {items.length > 1 && (
                         <button type="button" onClick={() => handleRemoveItemRow(index)} className="text-red-500 border border-red-200 bg-white rounded-md px-3 py-2 h-[38px]">Remove</button>
