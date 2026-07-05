@@ -132,7 +132,7 @@ export async function POST(request: Request) {
     // 📧 EMAIL DISPATCHER 
     // ==========================================
     try {
-      const managerEmail = "STORE_MANAGER_EMAIL@GMAIL.COM"; 
+      const managerEmail = "krishna.vamshi@sadhguru.org"; 
       const senderEmail = process.env.ALERT_EMAIL_USER;       
       const senderPass = process.env.ALERT_EMAIL_PASS;       
 
