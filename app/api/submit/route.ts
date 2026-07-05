@@ -158,7 +158,7 @@ export async function POST(request: Request) {
         const mailOptions = {
           from: `"Material Portal Alert" <${senderEmail}>`,
           to: managerEmail,
-          subject: `⚠️ New ${formTypeName} Request Submitted - ${supervisor}`,
+          subject: `⚠️ New ${formTypeName} Request Submitted - ${supervisor} - Fabrication Dept`,
           html: `
             <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 8px;">
               <h2 style="color: #1e3a8a; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">Material Issue Notification</h2>
