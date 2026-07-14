@@ -28,7 +28,7 @@ export async function GET() {
     const sheets = google.sheets({ version: 'v4', auth });
 
     // --- 1. FETCH RETURNABLES DROPDOWNS (EXISTING) ---
-    const returnableSheet = 'Master Stock';
+    const returnableSheet = 'Tools and Machines Master Stock';
     const retHeaderRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${returnableSheet}!2:2` });
     const retHeaders = retHeaderRes.data.values?.[0] || [];
     
@@ -47,7 +47,7 @@ export async function GET() {
     ]);
 
     // --- 2. FETCH CONSUMABLES DROPDOWNS (NEW) ---
-    const consumableSheet = 'Consumable Master Stock';
+    const consumableSheet = 'Consumables Master Stock';
     const conHeaderRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${consumableSheet}!2:2` });
     const conHeaders = conHeaderRes.data.values?.[0] || [];
 
