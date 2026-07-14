@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     try {
       const masterStockResponse = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `'Master Stock'!1:500`, 
+        range: `'Tools and Machines Master Stock'!1:500`, 
       });
       const masterRows = masterStockResponse.data.values || [];
       
