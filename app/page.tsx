@@ -10,7 +10,7 @@ interface DropdownItem {
 interface FormItem {
   type: 'Tools' | 'Machine' | 'Consumable';
   itemName: string;
-  quantity: string;
+  quantity: string; 
 }
 
 export default function TrackerPortal() {
@@ -21,16 +21,18 @@ export default function TrackerPortal() {
     supervisorMobile: '',
     location: '',
     expectedReturn: '',
-    issuedTo: 'Fabrication Dept',
+    issuedTo: 'Fabrication Dept', 
   });
 
   const [department, setDepartment] = useState<'Fabrication' | 'Other'>('Fabrication');
-  const [items, setItems] = useState<FormItem[]>([{ type: 'Tools', itemName: '', quantity: '' }]);
+  const [items, setItems] = useState<FormItem[]>([
+    { type: 'Tools', itemName: '', quantity: '' }
+  ]);
 
   const [supervisors, setSupervisors] = useState<string[]>([]);
   const [tools, setTools] = useState<DropdownItem[]>([]);
   const [machines, setMachines] = useState<DropdownItem[]>([]);
-
+  
   const [conItems, setConItems] = useState<DropdownItem[]>([]);
   const [conSupervisors, setConSupervisors] = useState<string[]>([]);
 
@@ -68,7 +70,7 @@ export default function TrackerPortal() {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading) return; 
     sessionStorage.setItem('Fabrication_form_mode', formMode);
     sessionStorage.setItem('Fabrication_form_data', JSON.stringify(formData));
     sessionStorage.setItem('Fabrication_dept', department);
@@ -79,13 +81,7 @@ export default function TrackerPortal() {
 
   const handleModeSelection = (mode: 'returnable' | 'consumable') => {
     setFormMode(mode);
-    setFormData({
-      supervisor: '',
-      supervisorMobile: '',
-      location: '',
-      expectedReturn: '',
-      issuedTo: 'Fabrication Dept',
-    });
+    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Fabrication Dept' });
     setDepartment('Fabrication');
     setSupSearch('');
     setItemSearch({});
@@ -99,13 +95,7 @@ export default function TrackerPortal() {
     sessionStorage.removeItem('Fabrication_items');
     sessionStorage.removeItem('Fabrication_sup_search');
     sessionStorage.removeItem('Fabrication_item_search');
-    setFormData({
-      supervisor: '',
-      supervisorMobile: '',
-      location: '',
-      expectedReturn: '',
-      issuedTo: 'Fabrication Dept',
-    });
+    setFormData({ supervisor: '', supervisorMobile: '', location: '', expectedReturn: '', issuedTo: 'Fabrication Dept' });
     setDepartment('Fabrication');
     setSupSearch('');
     setItemSearch({});
@@ -113,11 +103,11 @@ export default function TrackerPortal() {
   };
 
   useEffect(() => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       issuedTo: department === 'Fabrication' ? 'Fabrication Dept' : 'Other Depts',
       supervisor: '',
-      supervisorMobile: '',
+      supervisorMobile: ''
     }));
     setSupSearch('');
   }, [department]);
@@ -127,12 +117,12 @@ export default function TrackerPortal() {
       try {
         const res = await fetch('/api/dropdowns');
         const json = await res.json();
-
+        
         if (json.success) {
           setSupervisors(json.supervisors || []);
           setTools((json.tools || []).map((t: any) => ({ name: String(t), stock: 'Live' })));
           setMachines((json.machines || []).map((m: any) => ({ name: String(m), stock: 'Live' })));
-
+          
           setConSupervisors(json.consumableSupervisors || []);
           setConItems((json.consumableItems || []).map((i: any) => ({ name: String(i), stock: 'Live' })));
         }
@@ -152,7 +142,7 @@ export default function TrackerPortal() {
         setSupOpen(false);
       }
 
-      setItemOpen((prev) => {
+      setItemOpen(prev => {
         const updated = { ...prev };
         let changed = false;
         Object.keys(itemsRefs.current).forEach((key) => {
@@ -172,10 +162,11 @@ export default function TrackerPortal() {
   }, []);
 
   const activeSupervisorsList = formMode === 'consumable' ? conSupervisors : supervisors;
-  const filteredSupervisors = activeSupervisorsList.filter((name) => {
+  
+  const filteredSupervisors = activeSupervisorsList.filter(name => {
     const searchTerms = supSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
     const itemNameLower = name.toLowerCase();
-    return searchTerms.every((term) => itemNameLower.includes(term));
+    return searchTerms.every(term => itemNameLower.includes(term));
   });
 
   const handleAddItemRow = () => {
@@ -219,15 +210,15 @@ export default function TrackerPortal() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const hasInvalidQuantity = items.some((i) => !i.quantity || parseInt(String(i.quantity), 10) <= 0);
+    const hasInvalidQuantity = items.some(i => !i.quantity || parseInt(String(i.quantity), 10) <= 0);
 
-    if (
-      !formData.supervisor ||
-      (department === 'Other' && !formData.supervisorMobile) ||
-      !formData.issuedTo ||
-      items.some((i) => !i.itemName)
-    ) {
+    if (!formData.supervisor || !formData.issuedTo || items.some(i => !i.itemName)) {
       setMessage({ text: 'Please complete all required fields and item selections.', isError: true });
+      return;
+    }
+
+    if (department === 'Other' && !formData.supervisorMobile) {
+      setMessage({ text: 'Please enter Supervisor Mobile Number.', isError: true });
       return;
     }
 
@@ -239,26 +230,26 @@ export default function TrackerPortal() {
     setSubmitting(true);
     setMessage({ text: '', isError: false });
 
-    const formattedItems = items.map((item) => ({
+    const formattedItems = items.map(item => ({
       ...item,
-      quantity: parseInt(String(item.quantity), 10),
+      quantity: parseInt(String(item.quantity), 10)
     }));
 
     try {
       const res = await fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
+        body: JSON.stringify({ 
+          ...formData, 
           items: formattedItems,
-          formClass: formMode,
+          formClass: formMode 
         }),
       });
       const data = await res.json();
 
       if (data.success) {
         setMessage({ text: 'Form logs saved successfully to Google Sheets!', isError: false });
-        clearSessionBackup();
+        clearSessionBackup(); 
       } else {
         setMessage({ text: `Submission Failed: ${data.error}`, isError: true });
       }
@@ -282,7 +273,7 @@ export default function TrackerPortal() {
               onClick={() => handleModeSelection('returnable')}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-4 rounded-md transition-all text-sm shadow-sm"
             >
-              🔄 Returnables Form (Tools / Machines)
+              🛠️ Returnables Form (Tools / Machines)
             </button>
             <button
               onClick={() => handleModeSelection('consumable')}
@@ -299,6 +290,7 @@ export default function TrackerPortal() {
   return (
     <main className="min-h-screen bg-gray-100 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 sm:p-8 relative pt-14 sm:pt-16">
+        
         <button
           type="button"
           onClick={() => {
@@ -307,7 +299,7 @@ export default function TrackerPortal() {
           }}
           className="absolute left-6 top-5 text-xs font-semibold text-gray-600 hover:text-blue-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded transition-all shadow-sm border border-gray-200"
         >
-          ⬅️ Back to Main Menu
+          ← Back to Main Menu
         </button>
 
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6 text-center border-b pb-4">
@@ -316,7 +308,8 @@ export default function TrackerPortal() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {/* 1. ISSUED TO DEPARTMENT TOGGLE ROW */}
+
+            {/* ISSUED TO DEPARTMENT TOGGLE ROW */}
             <div className="flex flex-col col-span-1 sm:col-span-2 bg-gray-50 p-4 rounded-md border border-gray-200">
               <label className="block text-sm font-medium text-gray-700 mb-2">Issued To</label>
               <div className="flex gap-2">
@@ -324,9 +317,7 @@ export default function TrackerPortal() {
                   type="button"
                   onClick={() => setDepartment('Fabrication')}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-150 ${
-                    department === 'Fabrication'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                    department === 'Fabrication' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
                   }`}
                 >
                   Fabrication Dept
@@ -335,21 +326,18 @@ export default function TrackerPortal() {
                   type="button"
                   onClick={() => setDepartment('Other')}
                   className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all duration-150 ${
-                    department === 'Other'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                    department === 'Other' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
                   }`}
                 >
                   Other Depts
                 </button>
               </div>
             </div>
-
-            {/* 2. CONDITIONAL SUPERVISOR & MOBILE FIELDS */}
-            {department === 'Fabrication' ? (
-              /* FABRICATION DEPT: DROPDOWN SUPERVISOR FIELD */
-              <div className="flex flex-col space-y-1 relative col-span-1 sm:col-span-2" ref={supervisorRef}>
-                <label className="text-sm font-medium text-gray-700">Supervisor Name</label>
+            
+            {/* SUPERVISOR NAME (Dropdown for Fabrication, Manual Text for Other) */}
+            <div className={`flex flex-col space-y-1 relative ${department === 'Other' ? 'col-span-1' : 'col-span-1 sm:col-span-2'}`} ref={supervisorRef}>
+              <label className="text-sm font-medium text-gray-700">Supervisor Name</label>
+              {department === 'Fabrication' ? (
                 <div className="relative">
                   <input
                     type="text"
@@ -388,34 +376,31 @@ export default function TrackerPortal() {
                     </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              /* OTHER DEPTS: MANUAL TEXT INPUTS FOR NAME & MOBILE */
-              <>
-                <div className="flex flex-col space-y-1 col-span-1 sm:col-span-1">
-                  <label className="text-sm font-medium text-gray-700">Supervisor Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Enter Supervisor Name"
-                    className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
-                    value={formData.supervisor}
-                    onChange={(e) => setFormData({ ...formData, supervisor: e.target.value })}
-                  />
-                </div>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter supervisor name"
+                  className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
+                  value={formData.supervisor}
+                  onChange={(e) => setFormData({ ...formData, supervisor: e.target.value })}
+                />
+              )}
+            </div>
 
-                <div className="flex flex-col space-y-1 col-span-1 sm:col-span-1">
-                  <label className="text-sm font-medium text-gray-700">Supervisor Mobile Number</label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="Enter Mobile Number"
-                    className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
-                    value={formData.supervisorMobile}
-                    onChange={(e) => setFormData({ ...formData, supervisorMobile: e.target.value })}
-                  />
-                </div>
-              </>
+            {/* SUPERVISOR MOBILE NUMBER (Appears only when Other Depts is selected) */}
+            {department === 'Other' && (
+              <div className="flex flex-col space-y-1 col-span-1">
+                <label className="text-sm font-medium text-gray-700">Supervisor Mobile Number</label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="Enter mobile number"
+                  className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
+                  value={formData.supervisorMobile}
+                  onChange={(e) => setFormData({ ...formData, supervisorMobile: e.target.value.replace(/[^0-9+]/g, '') })}
+                />
+              </div>
             )}
 
             {/* LOCATION SITE */}
@@ -437,7 +422,7 @@ export default function TrackerPortal() {
               </label>
               <input
                 type="date"
-                required={formMode === 'returnable'}
+                required={formMode === 'returnable'} 
                 className="w-full bg-gray-50 border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 outline-none"
                 value={formData.expectedReturn}
                 onChange={(e) => setFormData({ ...formData, expectedReturn: e.target.value })}
@@ -462,18 +447,16 @@ export default function TrackerPortal() {
 
                   const currentSearch = itemSearch[index] || '';
                   const isOpen = itemOpen[index] || false;
-
-                  const filteredItems = masterList.filter((availItem) => {
+                  
+                  const filteredItems = masterList.filter(availItem => {
                     const searchTerms = currentSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
                     const itemNameLower = availItem.name.toLowerCase();
-                    return searchTerms.every((term) => itemNameLower.includes(term));
+                    return searchTerms.every(term => itemNameLower.includes(term));
                   });
-
+                  
                   return (
-                    <div
-                      key={index}
-                      className="flex flex-col sm:flex-row gap-4 items-end bg-gray-50 p-4 rounded-md border border-gray-200 relative"
-                    >
+                    <div key={index} className="flex flex-col sm:flex-row gap-4 items-end bg-gray-50 p-4 rounded-md border border-gray-200 relative">
+                      
                       {formMode === 'returnable' && (
                         <div className="w-full sm:w-1/4 flex flex-col space-y-1">
                           <label className="text-xs font-medium text-gray-600">Category</label>
@@ -482,24 +465,13 @@ export default function TrackerPortal() {
                             value={item.type}
                             onChange={(e) => updateItemField(index, 'type', e.target.value as any)}
                           >
-                            <option value="Tools" className="text-gray-800">
-                              Tools
-                            </option>
-                            <option value="Machine" className="text-gray-800">
-                              Machine
-                            </option>
+                            <option value="Tools" className="text-gray-800">Tools</option>
+                            <option value="Machine" className="text-gray-800">Machine</option>
                           </select>
                         </div>
                       )}
 
-                      <div
-                        className={`w-full flex flex-col space-y-1 relative ${
-                          formMode === 'returnable' ? 'sm:w-2/4' : 'sm:w-3/4'
-                        }`}
-                        ref={(el) => {
-                          itemsRefs.current[index] = el;
-                        }}
-                      >
+                      <div className={`w-full flex flex-col space-y-1 relative ${formMode === 'returnable' ? 'sm:w-2/4' : 'sm:w-3/4'}`} ref={(el) => { itemsRefs.current[index] = el; }}>
                         <label className="text-xs font-medium text-gray-600">Item Selection</label>
                         <div className="relative">
                           <input
@@ -544,67 +516,28 @@ export default function TrackerPortal() {
                       <div className="w-full sm:w-1/4 flex flex-col space-y-1">
                         <label className="text-xs font-medium text-gray-600">Quantity</label>
                         <div className="qty-container-block flex items-center bg-white border border-gray-300 rounded-md h-[38px] overflow-hidden shadow-sm">
-                          <button
-                            type="button"
-                            className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold"
-                            onClick={() => handleStepQuantity(index, 'down')}
-                          >
-                            -
-                          </button>
-                          <input
-                            type="text"
-                            className="w-full text-center text-sm font-semibold text-gray-800 outline-none bg-transparent"
-                            value={item.quantity}
-                            onChange={(e) => updateItemField(index, 'quantity', e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold"
-                            onClick={() => handleStepQuantity(index, 'up')}
-                          >
-                            +
-                          </button>
+                          <button type="button" className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold" onClick={() => handleStepQuantity(index, 'down')}>-</button>
+                          <input type="text" className="w-full text-center text-sm font-semibold text-gray-800 outline-none bg-transparent" value={item.quantity} onChange={(e) => updateItemField(index, 'quantity', e.target.value)} />
+                          <button type="button" className="px-3 h-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold" onClick={() => handleStepQuantity(index, 'up')}>+</button>
                         </div>
                       </div>
 
                       {items.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItemRow(index)}
-                          className="text-red-500 border border-red-200 bg-white rounded-md px-3 py-2 h-[38px]"
-                        >
-                          Remove
-                        </button>
+                        <button type="button" onClick={() => handleRemoveItemRow(index)} className="text-red-500 border border-red-200 bg-white rounded-md px-3 py-2 h-[38px]">Remove</button>
                       )}
                     </div>
                   );
                 })}
               </div>
             )}
-            <button type="button" onClick={handleAddItemRow} className="mt-3 text-sm text-blue-600 font-medium">
-              + Add Another Item Line
-            </button>
+            <button type="button" onClick={handleAddItemRow} className="mt-3 text-sm text-blue-600 font-medium">+ Add Another Item Line</button>
           </div>
 
           {message.text && (
-            <div
-              className={`p-3 rounded-md text-sm font-medium ${
-                message.isError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-              }`}
-            >
-              {message.text}
-            </div>
+            <div className={`p-3 rounded-md text-sm font-medium ${message.isError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>{message.text}</div>
           )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className={`w-full text-white font-semibold py-3 px-4 rounded-md text-sm transition-colors ${
-              formMode === 'consumable'
-                ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400'
-                : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
-            }`}
-          >
+          <button type="submit" disabled={submitting} className={`w-full text-white font-semibold py-3 px-4 rounded-md text-sm transition-colors ${formMode === 'consumable' ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400' : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'}`}>
             {submitting ? 'Saving Logs...' : 'Submit Request Form'}
           </button>
         </form>
